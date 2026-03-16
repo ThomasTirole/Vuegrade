@@ -1,5 +1,5 @@
 -- ============================================================
--- VuGrade M294 — Schéma Supabase
+-- VueGrade M294 — Schéma Supabase
 -- Exécuter dans l'éditeur SQL de Supabase Dashboard
 -- ============================================================
 

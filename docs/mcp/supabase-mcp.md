@@ -1,6 +1,6 @@
 # docs/mcp/supabase-mcp.md — Guide MCP Supabase
 
-> Instructions pour configurer et utiliser le MCP Supabase avec Claude Code sur VuGrade.
+> Instructions pour configurer et utiliser le MCP Supabase avec Claude Code sur VueGrade.
 
 ---
 
@@ -115,7 +115,7 @@ SELECT * FROM student_score_summary WHERE student_id = '...'"
 
 ---
 
-## 4. Tables du projet VuGrade
+## 4. Tables du projet VueGrade
 
 ### `experts`
 | Colonne | Type | Description |

@@ -39,6 +39,6 @@ Bélet Aedan,https://github.com/...,Affichage des divinités...,GreekMyth API,No
 ## Informations de version
 
 Afficher en bas de la page settings :
-- Version de VuGrade (depuis package.json)
+- Version de VueGrade (depuis package.json)
 - Nuxt version
 - Lien vers CLAUDE.md et CLAUDE.journal.md (pour l'enseignant)

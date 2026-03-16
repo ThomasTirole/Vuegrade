@@ -5,7 +5,7 @@
       <div class="sidebar-logo">
         <span class="logo-icon">▲</span>
         <div class="logo-text">
-          <span class="logo-main">VuGrade</span>
+          <span class="logo-main">VueGrade</span>
           <span class="logo-sub">Module 294</span>
         </div>
       </div>

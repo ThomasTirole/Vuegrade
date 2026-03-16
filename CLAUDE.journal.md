@@ -1,4 +1,4 @@
-# CLAUDE.journal.md — Journal de travail VuGrade
+# CLAUDE.journal.md — Journal de travail VueGrade
 
 > **Instructions pour Claude Code** :
 > - Ajouter une entrée à chaque session de travail
@@ -43,13 +43,13 @@ Rendre le projet fonctionnel : installation, connexion Supabase, premières page
 ## Session 0 — 2026-03-16 (Scaffold initial via claude.ai)
 
 ### 🎯 Objectif de la session
-Scaffolding complet de l'architecture VuGrade avant migration vers Claude Code.
+Scaffolding complet de l'architecture VueGrade avant migration vers Claude Code.
 
 ### ✅ Réalisé
 - `package.json` : dépendances Nuxt 3, Nuxt UI, Pinia, Supabase configurées
 - `nuxt.config.ts` : modules, runtimeConfig, colorMode dark, Google Fonts (Sora + DM Mono)
 - `app.vue` : design system complet avec variables CSS, dark IDE aesthetic, accent vert Nuxt #00DC82
-- `layouts/default.vue` : sidebar 220px avec navigation, logo VuGrade, version tag
+- `layouts/default.vue` : sidebar 220px avec navigation, logo VueGrade, version tag
 - `types/index.ts` : interfaces TypeScript complètes (Student, Question, OralSession, OralGrade, Expert, GitflowData, etc.) + helpers calculateFinalScore, SCORE_LABELS
 - `supabase/schema.sql` : 5 tables (experts, students, questions, oral_sessions, oral_grades), triggers updated_at, RLS permissive, vue student_score_summary, seed experts
 - `composables/useDB.ts` : CRUD complet typé pour toutes les entités, mappers snake_case↔camelCase

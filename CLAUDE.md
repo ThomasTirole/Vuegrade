@@ -1,4 +1,4 @@
-# CLAUDE.md — VuGrade
+# CLAUDE.md — VueGrade
 
 > Fichier d'instructions principal pour Claude Code.
 > À lire **en premier** avant toute action sur ce projet.
@@ -7,7 +7,7 @@
 
 ## 🎯 Contexte du projet
 
-**VuGrade** est un outil interne pour enseignant destiné à gérer :
+**VueGrade** est un outil interne pour enseignant destiné à gérer :
 - Les projets Vue.js des élèves (module M294, apprentis informaticiens 2e année)
 - La notation des examens oraux (3 experts, notes 1–6)
 - La visualisation du gitflow des repos GitHub des élèves

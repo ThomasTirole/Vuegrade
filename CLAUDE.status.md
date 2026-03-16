@@ -1,4 +1,4 @@
-# CLAUDE.status.md — État du projet VuGrade
+# CLAUDE.status.md — État du projet VueGrade
 
 > Fichier **vivant** — mis à jour par Claude Code à chaque session.
 > Reflète l'état exact du projet à l'instant T.

@@ -6,7 +6,7 @@
 
 <style>
 /* ============================================================
-   VuGrade — Design System Global
+   VueGrade — Design System Global
    Direction artistique : éditorial technique, dark IDE
    Polices : Sora (titres) + DM Mono (code/données)
    Accent : #00DC82 (vert Nuxt)

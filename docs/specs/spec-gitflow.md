@@ -10,7 +10,7 @@
 
 ## Objectif
 
-Permettre à l'enseignant de visualiser l'historique Git d'un projet élève directement dans VuGrade, sans ouvrir GitHub.
+Permettre à l'enseignant de visualiser l'historique Git d'un projet élève directement dans VueGrade, sans ouvrir GitHub.
 
 **Valeur ajoutée** : détecter des "commits dumps" (tout commité en une fois à la fin), vérifier l'utilisation de branches, voir la régularité du travail.
 

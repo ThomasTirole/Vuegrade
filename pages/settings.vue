@@ -18,7 +18,7 @@ onMounted(async () => {
   <div class="page">
     <header class="page-header">
       <h1 class="page-title">Paramètres</h1>
-      <p class="page-subtitle mono">Configuration de VuGrade</p>
+      <p class="page-subtitle mono">Configuration de VueGrade</p>
     </header>
 
     <div class="settings-grid">
