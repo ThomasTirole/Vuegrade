@@ -1,0 +1,40 @@
+# Nuxt
+.nuxt/
+.output/
+.nitro/
+.cache/
+
+# Node
+node_modules/
+
+# Env (ne JAMAIS commiter les clés)
+.env
+.env.local
+.env.*.local
+
+# MCP (contient les clés Supabase)
+.mcp.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Build
+dist/
+.vercel/
+.netlify/
+
+# Types générés par Supabase CLI
+types/database.types.ts

@@ -1,0 +1,29 @@
+{
+  "name": "vugrade",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --local > types/database.types.ts"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^2.18.0",
+    "@pinia/nuxt": "^0.5.1",
+    "@supabase/supabase-js": "^2.43.0",
+    "@nuxtjs/supabase": "^1.3.5",
+    "nuxt": "^3.12.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

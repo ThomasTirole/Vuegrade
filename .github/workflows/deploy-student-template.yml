@@ -1,0 +1,92 @@
+# ============================================================
+# GitHub Action — Déploiement automatique sur GitHub Pages
+# À inclure dans le template GitHub Classroom du projet M294
+# Fichier : .github/workflows/deploy.yml
+# ============================================================
+#
+# CE QUE FAIT CETTE ACTION :
+#   1. Se déclenche à chaque push sur la branche `main`
+#   2. Installe les dépendances Node.js
+#   3. Build le projet Vite/Vue
+#   4. Déploie le dossier `dist/` sur GitHub Pages
+#
+# PRÉREQUIS (dans les Settings du repo GitHub) :
+#   Settings → Pages → Source → "GitHub Actions"
+#
+# URL de déploiement automatique :
+#   https://<github-username>.github.io/<repo-name>/
+# ============================================================
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  # Permet de déclencher manuellement depuis l'onglet Actions
+  workflow_dispatch:
+
+# Permissions nécessaires pour GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois (annule le précédent si en cours)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Si le projet utilise une clé API dans .env :
+      # Créer un secret GitHub "VITE_API_KEY" dans Settings → Secrets → Actions
+      - name: Create .env from secrets
+        run: |
+          echo "VITE_API_KEY=${{ secrets.VITE_API_KEY }}" >> .env
+        # Supprimer cette étape si aucune clé API n'est nécessaire
+
+      - name: Build project
+        run: npm run build
+        env:
+          # Définit le base path pour GitHub Pages
+          # Remplacer "REPO_NAME" par le nom exact du repo
+          VITE_BASE_URL: /${{ github.event.repository.name }}/
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Dossier de build Vite par défaut
+          path: './dist'
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
