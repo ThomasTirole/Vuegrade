@@ -15,7 +15,31 @@ const emit = defineEmits<{
 }>()
 
 const expanded = ref(false)
-const scores = [1, 2, 3, 4, 5, 6]
+const scoreValues = [1, 2, 3, 4, 5, 6]
+
+// Récupère le score d'un expert pour cette question
+function getExpertScore(expertId: string): number | null {
+  const grade = props.session.grades.find(
+    g => g.questionId === props.question.id && g.expertId === expertId
+  )
+  return grade?.score ?? null
+}
+
+// Note finale (moyenne des experts)
+const finalScore = computed(() => {
+  const expertScores = props.experts
+    .map(e => getExpertScore(e.id))
+    .filter((s): s is number => s !== null)
+  if (expertScores.length === 0) return null
+  const avg = expertScores.reduce((a, b) => a + b, 0) / expertScores.length
+  return Math.round(avg * 2) / 2
+})
+
+// Score actuel de l'expert courant pour cette question
+const currentExpertScore = computed(() => {
+  if (!props.currentExpertId) return null
+  return getExpertScore(props.currentExpertId)
+})
 </script>
 
 <template>
@@ -34,13 +58,26 @@ const scores = [1, 2, 3, 4, 5, 6]
           :title="expert.name"
         >
           <span class="expert-init mono">{{ expert.initials }}</span>
-          <!-- TODO: afficher le score réel depuis la session -->
-          <span class="score-dot score-dot--empty">—</span>
+          <span
+            v-if="getExpertScore(expert.id) !== null"
+            class="score-dot"
+            :class="`score-dot--${getExpertScore(expert.id)}`"
+          >
+            {{ getExpertScore(expert.id) }}
+          </span>
+          <span v-else class="score-dot score-dot--empty">—</span>
         </div>
       </div>
 
       <!-- Note finale -->
-      <span class="final-placeholder mono">—</span>
+      <span
+        v-if="finalScore !== null"
+        class="final-score mono"
+        :class="`score-${Math.round(finalScore)}`"
+      >
+        {{ finalScore.toFixed(1) }}
+      </span>
+      <span v-else class="final-placeholder mono">—</span>
 
       <UIcon
         :name="expanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
@@ -79,10 +116,10 @@ const scores = [1, 2, 3, 4, 5, 6]
         <span class="detail-label">Ma note</span>
         <div class="score-buttons">
           <button
-            v-for="s in scores"
+            v-for="s in scoreValues"
             :key="s"
             class="score-btn"
-            :class="`score-btn--${s}`"
+            :class="[`score-btn--${s}`, { 'score-btn--selected': currentExpertScore === s }]"
             :title="SCORE_LABELS[s]"
             :disabled="saving"
             @click="emit('score', s)"
@@ -171,6 +208,29 @@ const scores = [1, 2, 3, 4, 5, 6]
   background: var(--c-bg);
   border: 1px solid var(--c-border-soft);
 }
+
+/* Scores colorés */
+.score-dot--1 { background: color-mix(in srgb, var(--score-1) 15%, transparent); color: var(--score-1); border: 1px solid var(--score-1); }
+.score-dot--2 { background: color-mix(in srgb, var(--score-2) 15%, transparent); color: var(--score-2); border: 1px solid var(--score-2); }
+.score-dot--3 { background: color-mix(in srgb, var(--score-3) 15%, transparent); color: var(--score-3); border: 1px solid var(--score-3); }
+.score-dot--4 { background: color-mix(in srgb, var(--score-4) 15%, transparent); color: var(--score-4); border: 1px solid var(--score-4); }
+.score-dot--5 { background: color-mix(in srgb, var(--score-5) 15%, transparent); color: var(--score-5); border: 1px solid var(--score-5); }
+.score-dot--6 { background: color-mix(in srgb, var(--score-6) 15%, transparent); color: var(--score-6); border: 1px solid var(--score-6); }
+
+.final-score {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+/* Score color classes */
+.score-1 { color: var(--score-1); }
+.score-2 { color: var(--score-2); }
+.score-3 { color: var(--score-3); }
+.score-4 { color: var(--score-4); }
+.score-5 { color: var(--score-5); }
+.score-6 { color: var(--score-6); }
 
 .final-placeholder {
   font-size: 0.85rem;
@@ -261,6 +321,14 @@ const scores = [1, 2, 3, 4, 5, 6]
 
 .score-btn:hover:not(:disabled) { transform: translateY(-2px); }
 .score-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Score button selected state */
+.score-btn--selected.score-btn--1 { background: color-mix(in srgb, var(--score-1) 20%, transparent); border-color: var(--score-1); color: var(--score-1); }
+.score-btn--selected.score-btn--2 { background: color-mix(in srgb, var(--score-2) 20%, transparent); border-color: var(--score-2); color: var(--score-2); }
+.score-btn--selected.score-btn--3 { background: color-mix(in srgb, var(--score-3) 20%, transparent); border-color: var(--score-3); color: var(--score-3); }
+.score-btn--selected.score-btn--4 { background: color-mix(in srgb, var(--score-4) 20%, transparent); border-color: var(--score-4); color: var(--score-4); }
+.score-btn--selected.score-btn--5 { background: color-mix(in srgb, var(--score-5) 20%, transparent); border-color: var(--score-5); color: var(--score-5); }
+.score-btn--selected.score-btn--6 { background: color-mix(in srgb, var(--score-6) 20%, transparent); border-color: var(--score-6); color: var(--score-6); }
 
 /* Score button colors on hover */
 .score-btn--1:hover { background: color-mix(in srgb, var(--score-1) 15%, transparent); border-color: var(--score-1); color: var(--score-1); }

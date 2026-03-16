@@ -7,13 +7,13 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 0 (scaffold initial)
+**Session** : Session 1
 **Date** : 2026-03-16
-**Par** : Claude (via claude.ai, avant migration Claude Code)
+**Par** : Claude Code (Opus 4.5)
 
 ---
 
-## ✅ Ce qui est fait (scaffold initial)
+## ✅ Ce qui est fait
 
 ### Infrastructure
 - [x] `package.json` — dépendances Nuxt 3, Nuxt UI, Pinia, Supabase
@@ -21,6 +21,7 @@
 - [x] `app.vue` — design system global (CSS variables, polices Google Fonts)
 - [x] `layouts/default.vue` — sidebar navigation avec 4 entrées
 - [x] `.env.example` — template variables d'environnement
+- [x] `.env` — configuré avec clés Supabase et GitHub
 - [x] `types/index.ts` — types TypeScript domaine (Student, Question, OralSession, etc.)
 
 ### Base de données
@@ -32,23 +33,26 @@
 - [x] `stores/useStudentsStore.ts` — store Pinia élèves
 - [x] `stores/useQuestionsStore.ts` — store Pinia questions
 
-### Pages (scaffold)
+### Pages
 - [x] `pages/index.vue` — dashboard grille projets
 - [x] `pages/students/[id].vue` — fiche élève (3 onglets : projet / oral / gitflow)
+- [x] `pages/students/new.vue` — formulaire création élève ✨ Session 1
+- [x] `pages/students/[id]/edit.vue` — formulaire édition élève ✨ Session 1
 - [x] `pages/questions.vue` — pool de questions T/P
 - [x] `pages/oral.vue` — planning passage + notation live
 - [x] `pages/settings.vue` — config experts & GitHub
 
-### Composants (scaffold)
+### Composants
 - [x] `components/student/StudentCard.vue`
-- [x] `components/oral/OralPanel.vue`
-- [x] `components/oral/OralQuestionRow.vue`
+- [x] `components/oral/OralPanel.vue` — scores connectés à Supabase ✨ Session 1
+- [x] `components/oral/OralQuestionRow.vue` — affichage scores réels ✨ Session 1
 - [x] `components/gitflow/GitflowViewer.vue`
 - [x] `components/ui/QuestionCard.vue`
 - [x] `components/ui/QuestionModal.vue`
 
 ### Serveur
-- [x] `server/api/github/gitflow.get.ts` — route GitHub (token protégé)
+- [x] `server/api/github/gitflow.get.ts` — route GitHub branches/commits
+- [x] `server/api/github/repo.get.ts` — route info repo ✨ Session 1
 
 ### Template élève
 - [x] `.github/workflows/deploy-student-template.yml` — GitHub Action déploiement élèves
@@ -59,17 +63,14 @@
 ## ❌ Ce qui reste à faire (par priorité)
 
 ### Priorité HAUTE 🔴
-- [ ] **`pages/students/new.vue`** — formulaire création élève
-- [ ] **`pages/students/[id]/edit.vue`** — formulaire édition élève
-- [ ] **Connexion réelle Supabase** — tester les CRUD après config `.env`
+- [ ] **Exécuter `supabase/schema.sql`** — créer les tables dans Supabase
 - [ ] **Supabase Realtime** — synchronisation des notes entre experts en live
-- [ ] **Scores affichés dans `OralQuestionRow`** — actuellement les scores sont des `—` statiques
+- [ ] **Test end-to-end** — créer un élève, vérifier fiche, tester gitflow, notation
 
 ### Priorité MOYENNE 🟡
 - [ ] **`pages/students/index.vue`** — liste élèves avec tri/filtre/recherche
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
 - [ ] **Export notes** — export CSV/PDF des notes finales
-- [ ] **`server/api/github/repo.get.ts`** — route info repo (utilisée dans `useGitHub.ts`)
 - [ ] **Gitflow branches visualisation améliorée** — lignes parallèles par branche (type GitKraken)
 
 ### Priorité BASSE 🟢
@@ -80,33 +81,35 @@
 
 ---
 
-## 🔧 Configuration requise avant démarrage
+## 🔧 Configuration
 
 ```
-.env à créer (copier depuis .env.example) :
-  SUPABASE_URL=           ← depuis supabase.com/dashboard
-  SUPABASE_ANON_KEY=      ← depuis supabase.com/dashboard
-  SUPABASE_SERVICE_KEY=   ← clé service role
-  GITHUB_TOKEN=           ← Personal Access Token
-  GITHUB_ORG=             ← ex: divtec-cejef
+.env configuré :
+  SUPABASE_URL=https://fuuubzdcauekxpwzglze.supabase.co
+  SUPABASE_KEY=...
+  SUPABASE_SERVICE_KEY=...
+  GITHUB_TOKEN=ghp_...
+  GITHUB_ORG=divtec-cejef
 
 Supabase :
-  → Exécuter supabase/schema.sql dans SQL Editor
+  → Exécuter supabase/schema.sql dans SQL Editor (TODO)
   → Adapter le seed des experts (noms et initiales réels)
-
-MCP Supabase :
-  → Voir docs/mcp/supabase-mcp.md
 ```
 
 ---
 
-## 🐛 Bugs connus / points de vigilance
+## 🐛 Bugs corrigés Session 1
+
+| # | Description | Statut |
+|---|---|---|
+| 1 | Les scores dans `OralQuestionRow` sont des `—` statiques | ✅ Corrigé |
+| 2 | Route `/api/github/repo` manquante | ✅ Corrigé |
+| 3 | Mise à jour des scores locaux après `upsertGrade` | ✅ Corrigé |
+
+## 🐛 Bugs restants
 
 | # | Description | Fichier | Priorité |
 |---|---|---|---|
-| 1 | Les scores dans `OralQuestionRow` sont des `—` statiques, pas connectés à Supabase | `components/oral/OralQuestionRow.vue` | HIGH |
-| 2 | `useGitHub.ts` appelle `/api/github/repo` mais la route n'existe pas encore | `server/api/github/repo.get.ts` | MEDIUM |
-| 3 | `OralPanel.vue` : mise à jour des scores locaux après `upsertGrade` non implémentée | `components/oral/OralPanel.vue` L.~110 | HIGH |
 | 4 | `pages/students/[id].vue` : import `StudentCard` manquant pour le gitflow | `pages/students/[id].vue` | LOW |
 
 ---
@@ -115,8 +118,8 @@ MCP Supabase :
 
 | Indicateur | Valeur |
 |---|---|
-| Fichiers créés | 26 |
-| Pages fonctionnelles | 0 (scaffold seulement, non testé) |
+| Fichiers créés | 29 |
+| Pages fonctionnelles | 5 (dashboard, fiche, new, edit, questions) |
 | Composants créés | 6 |
-| Couverture TypeScript | ~80% (types définis, pas tous appliqués) |
+| Couverture TypeScript | ~85% |
 | Tests | Aucun |

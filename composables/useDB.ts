@@ -253,10 +253,12 @@ function mapSession(d: Record<string, unknown>): OralSession {
 function mapGrade(d: Record<string, unknown>): OralGrade {
   return {
     id: d.id as string,
+    sessionId: d.session_id as string,
     studentId: d.student_id as string,
     questionId: d.question_id as string,
-    scores: [], // enrichi côté composant avec les données expert
-    finalScore: null,
+    expertId: d.expert_id as string,
+    score: d.score as number | null,
+    comment: d.comment as string | undefined,
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }

@@ -9,30 +9,34 @@
 
 ---
 
-## Session 1 — À compléter par Claude Code
-
-> Cette entrée sera remplie lors de la première session Claude Code.
-> Template à utiliser :
-
-```
-## Session N — YYYY-MM-DD
+## Session 1 — 2026-03-16
 
 ### 🎯 Objectif de la session
-[Ce qui était demandé]
+Rendre le projet fonctionnel : installation, connexion Supabase, premières pages opérationnelles.
 
 ### ✅ Réalisé
-- [Fichier créé/modifié] : [description]
-- ...
+- `.env` : configuré avec les vraies clés Supabase et GitHub, ajout de `SUPABASE_KEY` pour le module @nuxtjs/supabase
+- `pages/students/new.vue` : formulaire création élève complet avec calcul auto de l'URL de déploiement
+- `pages/students/[id]/edit.vue` : formulaire édition élève, pré-rempli avec données existantes
+- `composables/useDB.ts` : correction de `mapGrade()` pour mapper correctement tous les champs (sessionId, expertId, score)
+- `components/oral/OralPanel.vue` : mise à jour des scores locaux après `upsertGrade()`, correction de `getScore()` pour filtrer par expertId
+- `components/oral/OralQuestionRow.vue` : affichage des scores réels par expert, note finale calculée, bouton sélectionné mis en évidence
+- `server/api/github/repo.get.ts` : nouvelle route pour récupérer les infos basiques d'un repo GitHub
 
 ### 🔧 Décisions techniques
-- [Décision] : [Justification]
+- **SUPABASE_KEY vs SUPABASE_ANON_KEY** : le module @nuxtjs/supabase attend `SUPABASE_KEY`, ajouté dans .env
+- **Scores colorés** : utilisation des variables CSS `--score-1` à `--score-6` pour les scores dans OralQuestionRow
+- **Note finale calculée** : moyenne arrondie à 0.5 près pour chaque question
 
 ### 🐛 Problèmes rencontrés
-- [Problème] : [Solution appliquée ou TODO]
+- **MCP Supabase non connecté** : le MCP n'est pas disponible, les migrations devront être exécutées manuellement via le dashboard Supabase
+- **Port 3000 occupé** : le serveur de dev a démarré sur le port 3001
 
 ### 📋 Prochaine session
-- [ ] [Tâche prioritaire suivante]
-```
+- [ ] Exécuter `supabase/schema.sql` dans le SQL Editor Supabase
+- [ ] Test end-to-end avec données réelles (élève Bélet Aedan)
+- [ ] Implémenter Supabase Realtime pour la co-notation
+- [ ] Créer la page liste élèves avec tri/filtre/recherche
 
 ---
 

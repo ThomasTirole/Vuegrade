@@ -42,10 +42,9 @@ function selectExpert(id: string) {
 function getScore(questionId: string, expertId: string): number | null {
   if (!session.value) return null
   const grade = session.value.grades.find(
-    g => g.questionId === questionId
+    g => g.questionId === questionId && g.expertId === expertId
   )
-  // Dans notre modèle simplifié, on retourne le score direct
-  return (grade as any)?.[`score_${expertId}`] ?? null
+  return grade?.score ?? null
 }
 
 // Note finale pour une question (moyenne des experts)
@@ -78,14 +77,22 @@ async function saveScore(questionId: string, score: number) {
   if (!session.value || !currentExpertId.value) return
   saving.value = questionId
   try {
-    await db.oral.upsertGrade({
+    const newGrade = await db.oral.upsertGrade({
       sessionId: session.value.id,
       studentId: props.studentId,
       questionId,
       expertId: currentExpertId.value,
       score,
     })
-    // TODO: mettre à jour le score local dans session.value.grades
+    // Mise à jour du score local dans session.value.grades
+    const existingIdx = session.value.grades.findIndex(
+      g => g.questionId === questionId && g.expertId === currentExpertId.value
+    )
+    if (existingIdx !== -1) {
+      session.value.grades[existingIdx] = newGrade
+    } else {
+      session.value.grades.push(newGrade)
+    }
   } finally {
     saving.value = null
   }
