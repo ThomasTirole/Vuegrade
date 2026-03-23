@@ -7,8 +7,8 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 1
-**Date** : 2026-03-16
+**Session** : Session 2
+**Date** : 2026-03-23
 **Par** : Claude Code (Opus 4.5)
 
 ---
@@ -26,6 +26,7 @@
 
 ### Base de données
 - [x] `supabase/schema.sql` — schéma complet (tables, triggers, RLS, vue, seed experts)
+- [x] **Migrations Supabase appliquées** — 8 migrations via MCP ✨ Session 2
 
 ### Composables & Stores
 - [x] `composables/useDB.ts` — helpers Supabase typés (CRUD students, questions, oral, experts)
@@ -63,7 +64,7 @@
 ## ❌ Ce qui reste à faire (par priorité)
 
 ### Priorité HAUTE 🔴
-- [ ] **Exécuter `supabase/schema.sql`** — créer les tables dans Supabase
+- [x] **Exécuter `supabase/schema.sql`** — ✅ fait via MCP Session 2
 - [ ] **Supabase Realtime** — synchronisation des notes entre experts en live
 - [ ] **Test end-to-end** — créer un élève, vérifier fiche, tester gitflow, notation
 
@@ -91,9 +92,12 @@
   GITHUB_TOKEN=ghp_...
   GITHUB_ORG=divtec-cejef
 
-Supabase :
-  → Exécuter supabase/schema.sql dans SQL Editor (TODO)
-  → Adapter le seed des experts (noms et initiales réels)
+Supabase (Session 2) :
+  ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades
+  ✅ Triggers updated_at configurés
+  ✅ RLS activé avec politiques permissives (outil interne)
+  ✅ Vue student_score_summary créée
+  ✅ 3 experts seedés : TTI (teacher), FHE, KGE (experts)
 ```
 
 ---

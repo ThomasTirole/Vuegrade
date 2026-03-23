@@ -9,6 +9,39 @@
 
 ---
 
+## Session 2 — 2026-03-23
+
+### 🎯 Objectif de la session
+Configurer la base de données Supabase via MCP et appliquer les migrations.
+
+### ✅ Réalisé
+- **MCP Supabase** : résolution du problème de connexion (projet en pause + migration vers transport HTTP)
+- **Migrations appliquées** via MCP (8 migrations) :
+  1. `create_experts_table` — table experts + extension uuid-ossp
+  2. `create_students_table` — table élèves
+  3. `create_questions_table` — table questions + index
+  4. `create_oral_sessions_table` — sessions d'oral
+  5. `create_oral_grades_table` — notes par question/expert + contrainte unique
+  6. `create_triggers_updated_at` — triggers automatiques
+  7. `enable_rls_policies` — RLS permissif pour outil interne
+  8. `seed_experts` — 3 experts (TTI teacher, FHE/KGE experts)
+- **Vue créée** : `student_score_summary` pour récapitulatif des notes
+
+### 🔧 Décisions techniques
+- **MCP HTTP** : migration de npx vers `https://mcp.supabase.com/mcp` (authentification OAuth)
+- **Migrations séparées** : une migration par entité pour meilleure traçabilité
+
+### 🐛 Problèmes rencontrés
+- **Projet Supabase en pause** : les projets gratuits sont mis en pause après 7 jours d'inactivité
+- **MCP npx obsolète** : le transport HTTP est maintenant recommandé par Supabase
+
+### 📋 Prochaine session
+- [ ] Test end-to-end avec données réelles
+- [ ] Implémenter Supabase Realtime pour la co-notation
+- [ ] Créer la page liste élèves avec tri/filtre/recherche
+
+---
+
 ## Session 1 — 2026-03-16
 
 ### 🎯 Objectif de la session
