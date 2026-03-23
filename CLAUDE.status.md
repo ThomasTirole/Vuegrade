@@ -110,11 +110,14 @@ Supabase (Session 2) :
 | 2 | Route `/api/github/repo` manquante | ✅ Corrigé |
 | 3 | Mise à jour des scores locaux après `upsertGrade` | ✅ Corrigé |
 
-## 🐛 Bugs restants
+## 🐛 Bugs restants (Session 2)
 
 | # | Description | Fichier | Priorité |
 |---|---|---|---|
 | 4 | `pages/students/[id].vue` : import `StudentCard` manquant pour le gitflow | `pages/students/[id].vue` | LOW |
+| 5 | Page edit student ne fonctionne pas | `pages/students/[id]/edit.vue` | HIGH |
+| 6 | Questions théoriques non visibles dans le pool | `pages/questions.vue` | HIGH |
+| 7 | Page liste élèves manquante | `pages/students/index.vue` | MEDIUM |
 
 ---
 

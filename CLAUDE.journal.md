@@ -35,10 +35,21 @@ Configurer la base de données Supabase via MCP et appliquer les migrations.
 - **Projet Supabase en pause** : les projets gratuits sont mis en pause après 7 jours d'inactivité
 - **MCP npx obsolète** : le transport HTTP est maintenant recommandé par Supabase
 
+### 🧪 Tests effectués
+- ✅ Dashboard : card élève affichée
+- ✅ Attribution des notes par question : fonctionne
+- ✅ Passage oral : affichage correct
+- ❌ Gitflow : non testé (pas de vrai repo connecté)
+- ❌ Page /students : n'existe pas (liste élèves)
+- ❌ Questions théoriques : non visibles dans le pool /questions
+- ❌ Vue edit student : ne fonctionne pas
+
 ### 📋 Prochaine session
-- [ ] Test end-to-end avec données réelles
-- [ ] Implémenter Supabase Realtime pour la co-notation
-- [ ] Créer la page liste élèves avec tri/filtre/recherche
+- [ ] Corriger page /students/[id]/edit.vue
+- [ ] Créer page /students/index.vue (liste élèves)
+- [ ] Corriger affichage questions dans /questions
+- [ ] Tester gitflow avec un vrai repo
+- [ ] Implémenter Supabase Realtime
 
 ---
 
