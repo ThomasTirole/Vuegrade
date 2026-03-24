@@ -3,6 +3,7 @@
 const router = useRouter()
 const db = useDB()
 const studentsStore = useStudentsStore()
+const toast = useToast()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -67,6 +68,12 @@ async function handleSubmit() {
       teacherApiKey: form.teacherApiKey.trim() || undefined,
       passageOrder: form.passageOrder ?? undefined,
       passageTime: form.passageTime.trim() || undefined,
+    })
+    toast.add({
+      title: 'Élève créé',
+      description: `${created.name} a été ajouté avec succès.`,
+      icon: 'i-heroicons-check-circle',
+      color: 'green',
     })
     router.push(`/students/${created.id}`)
   } catch (e: any) {

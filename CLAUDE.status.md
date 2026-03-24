@@ -7,7 +7,7 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 3
+**Session** : Session 4
 **Date** : 2026-03-24
 **Par** : Claude Code (Opus 4.5)
 
@@ -29,7 +29,7 @@
 - [x] **Migrations Supabase appliquées** — 8 migrations via MCP ✨ Session 2
 
 ### Composables & Stores
-- [x] `composables/useDB.ts` — helpers Supabase typés (CRUD students, questions, oral, experts)
+- [x] `composables/useDB.ts` — helpers Supabase typés (CRUD students, questions, oral, experts, studentQuestions)
 - [x] `composables/useGitHub.ts` — accès API GitHub (via server route)
 - [x] `stores/useStudentsStore.ts` — store Pinia élèves
 - [x] `stores/useQuestionsStore.ts` — store Pinia questions
@@ -45,11 +45,13 @@
 
 ### Composants
 - [x] `components/student/StudentCard.vue`
+- [x] `components/student/StudentQuestions.vue` — onglet questions fiche élève ✨ Session 4
+- [x] `components/student/QuestionSelector.vue` — sélection questions du pool ✨ Session 4
 - [x] `components/oral/OralPanel.vue` — scores connectés à Supabase ✨ Session 1
 - [x] `components/oral/OralQuestionRow.vue` — affichage scores réels ✨ Session 1
 - [x] `components/gitflow/GitflowViewer.vue`
 - [x] `components/ui/QuestionCard.vue`
-- [x] `components/ui/QuestionModal.vue`
+- [x] `components/ui/QuestionModal.vue` — mode theoretical/practical ✨ Session 4
 
 ### Serveur
 - [x] `server/api/github/gitflow.get.ts` — route GitHub branches/commits
@@ -92,12 +94,13 @@
   GITHUB_TOKEN=ghp_...
   GITHUB_ORG=divtec-cejef
 
-Supabase (Session 2) :
-  ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades
+Supabase (Session 2 + Session 4) :
+  ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades, student_questions
   ✅ Triggers updated_at configurés
   ✅ RLS activé avec politiques permissives (outil interne)
   ✅ Vue student_score_summary créée
   ✅ 3 experts seedés : TTI (teacher), FHE, KGE (experts)
+  ✅ Table student_questions pour liaison élève ↔ questions théoriques (Session 4)
 ```
 
 ---

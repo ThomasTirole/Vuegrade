@@ -14,7 +14,8 @@ export const useQuestionsStore = defineStore('questions', () => {
   async function fetchPool() {
     loading.value = true
     try {
-      pool.value = await db.questions.getPool()
+      // Utilise la nouvelle méthode qui ne récupère que les théoriques du pool
+      pool.value = await db.questions.getTheoreticalPool()
     } finally {
       loading.value = false
     }
@@ -30,6 +31,12 @@ export const useQuestionsStore = defineStore('questions', () => {
   }
 
   async function addQuestion(payload: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) {
+    // Auto-générer ref T-X pour les questions théoriques du pool
+    if (payload.type === 'theoretical' && !payload.studentId) {
+      const nextNum = await db.questions.getNextTheoreticalRef()
+      payload.ref = `T-${nextNum}`
+    }
+
     const q = await db.questions.create(payload)
     if (!q.studentId) {
       pool.value.push(q)

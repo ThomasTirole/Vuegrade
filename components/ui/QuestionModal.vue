@@ -1,9 +1,15 @@
 <script setup lang="ts">
+// Modal de création/édition de question
+// Supporte deux modes :
+// - 'theoretical' : questions du pool (pas de ref, pas de studentId)
+// - 'practical' : questions pratiques pour un élève (studentId requis)
+
 import type { Question } from '~/types'
 
 const props = defineProps<{
   question: Question | null
-  defaultType: 'theoretical' | 'practical'
+  mode: 'theoretical' | 'practical'
+  studentId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -13,10 +19,9 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.question)
+const isTheoretical = computed(() => props.mode === 'theoretical')
 
 const form = reactive({
-  type: props.question?.type ?? props.defaultType,
-  ref: props.question?.ref ?? '',
   title: props.question?.title ?? '',
   question: props.question?.question ?? '',
   expectedAnswer: props.question?.expectedAnswer ?? '',
@@ -24,13 +29,12 @@ const form = reactive({
   codeSnippet: props.question?.codeSnippet ?? '',
   codeLanguage: props.question?.codeLanguage ?? 'vue',
   tags: props.question?.tags?.join(', ') ?? '',
-  studentId: props.question?.studentId ?? null,
 })
 
 function submit() {
   const payload = {
-    type: form.type as Question['type'],
-    ref: form.ref.trim(),
+    type: isTheoretical.value ? 'theoretical' : 'practical' as Question['type'],
+    ref: '', // Ref n'est plus utilisé, sera généré dynamiquement (T-1, P-1, etc.)
     title: form.title.trim(),
     question: form.question.trim(),
     expectedAnswer: form.expectedAnswer.trim(),
@@ -38,7 +42,7 @@ function submit() {
     codeSnippet: form.codeSnippet.trim() || undefined,
     codeLanguage: form.codeLanguage,
     tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
-    studentId: form.studentId,
+    studentId: isTheoretical.value ? null : (props.studentId ?? null),
   }
 
   if (isEdit.value && props.question) {
@@ -47,6 +51,11 @@ function submit() {
     emit('save', payload)
   }
 }
+
+const modalTitle = computed(() => {
+  if (isEdit.value) return 'Modifier la question'
+  return isTheoretical.value ? 'Nouvelle question théorique' : 'Nouvelle question pratique'
+})
 </script>
 
 <template>
@@ -54,44 +63,21 @@ function submit() {
     <div class="modal-backdrop" @click.self="$emit('close')">
       <div class="modal">
         <div class="modal-header">
-          <h2 class="modal-title">
-            {{ isEdit ? 'Modifier la question' : 'Nouvelle question' }}
-          </h2>
+          <div class="modal-header-content">
+            <span
+              class="type-badge"
+              :class="isTheoretical ? 'type-badge--theory' : 'type-badge--practical'"
+            >
+              {{ isTheoretical ? 'T' : 'P' }}
+            </span>
+            <h2 class="modal-title">{{ modalTitle }}</h2>
+          </div>
           <button class="close-btn" @click="$emit('close')">
             <UIcon name="i-heroicons-x-mark" />
           </button>
         </div>
 
         <form class="modal-form" @submit.prevent="submit">
-          <!-- Type + Ref -->
-          <div class="form-row">
-            <div class="form-field">
-              <label class="field-label">Type</label>
-              <div class="type-selector">
-                <button
-                  type="button"
-                  class="type-btn"
-                  :class="{ 'type-btn--active type-btn--theory': form.type === 'theoretical' }"
-                  @click="form.type = 'theoretical'"
-                >
-                  T — Théorique
-                </button>
-                <button
-                  type="button"
-                  class="type-btn"
-                  :class="{ 'type-btn--active type-btn--practical': form.type === 'practical' }"
-                  @click="form.type = 'practical'"
-                >
-                  P — Pratique
-                </button>
-              </div>
-            </div>
-            <div class="form-field form-field--sm">
-              <label class="field-label">Référence <span class="muted">(ex: T-1, P-4)</span></label>
-              <input v-model="form.ref" class="field-input mono" placeholder="T-1" required />
-            </div>
-          </div>
-
           <!-- Titre -->
           <div class="form-field">
             <label class="field-label">Titre court</label>
@@ -128,7 +114,7 @@ function submit() {
           </div>
 
           <!-- Code snippet (pratique uniquement) -->
-          <div class="form-field" v-if="form.type === 'practical'">
+          <div class="form-field" v-if="!isTheoretical">
             <label class="field-label">Extrait de code</label>
             <div class="code-input-wrapper">
               <select v-model="form.codeLanguage" class="lang-select mono">
@@ -190,7 +176,27 @@ function submit() {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--c-border);
 }
+.modal-header-content {
+  display: flex; align-items: center; gap: 0.75rem;
+}
 .modal-title { font-size: 1rem; font-weight: 600; margin: 0; }
+
+.type-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600;
+}
+.type-badge--theory {
+  background: color-mix(in srgb, var(--c-info) 15%, transparent);
+  color: var(--c-info);
+  border: 1px solid color-mix(in srgb, var(--c-info) 30%, transparent);
+}
+.type-badge--practical {
+  background: color-mix(in srgb, var(--c-vue) 15%, transparent);
+  color: var(--c-vue);
+  border: 1px solid color-mix(in srgb, var(--c-vue) 30%, transparent);
+}
+
 .close-btn {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 8px;
@@ -204,9 +210,7 @@ function submit() {
   display: flex; flex-direction: column; gap: 1rem;
 }
 
-.form-row { display: flex; gap: 1rem; }
-.form-field { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; }
-.form-field--sm { max-width: 140px; }
+.form-field { display: flex; flex-direction: column; gap: 0.35rem; }
 
 .field-label {
   font-family: var(--font-mono); font-size: 0.7rem;
@@ -232,26 +236,6 @@ function submit() {
   background: color-mix(in srgb, var(--c-vue) 4%, var(--c-bg));
 }
 .field-textarea--code { font-family: var(--font-mono); font-size: 0.8rem; }
-
-.type-selector { display: flex; gap: 0.4rem; }
-.type-btn {
-  flex: 1; padding: 0.45rem 0.75rem;
-  background: var(--c-bg); border: 1px solid var(--c-border);
-  border-radius: 8px; color: var(--c-text-soft);
-  font-size: 0.8rem; font-family: var(--font-mono);
-  cursor: pointer; transition: all 0.15s;
-}
-.type-btn:hover { border-color: var(--c-text-muted); color: var(--c-text); }
-.type-btn--active.type-btn--theory {
-  background: color-mix(in srgb, var(--c-info) 10%, transparent);
-  border-color: color-mix(in srgb, var(--c-info) 40%, transparent);
-  color: var(--c-info);
-}
-.type-btn--active.type-btn--practical {
-  background: color-mix(in srgb, var(--c-vue) 10%, transparent);
-  border-color: color-mix(in srgb, var(--c-vue) 40%, transparent);
-  color: var(--c-vue);
-}
 
 .code-input-wrapper { display: flex; flex-direction: column; gap: 0.4rem; }
 .lang-select {

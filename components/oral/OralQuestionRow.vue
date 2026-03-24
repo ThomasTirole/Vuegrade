@@ -4,6 +4,7 @@ import type { Question, OralSession, Expert } from '~/types'
 
 const props = defineProps<{
   question: Question
+  displayRef: string // Ref à afficher (T-X pour théoriques, P-X calculé pour pratiques)
   experts: Expert[]
   session: OralSession
   currentExpertId: string | null
@@ -46,7 +47,7 @@ const currentExpertScore = computed(() => {
   <div class="question-row">
     <!-- Row header -->
     <div class="row-header" @click="expanded = !expanded">
-      <span class="q-ref mono">{{ question.ref }}</span>
+      <span class="q-ref mono">{{ displayRef }}</span>
       <span class="q-title">{{ question.title }}</span>
 
       <!-- Scores par expert -->

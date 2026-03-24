@@ -38,8 +38,8 @@ export type QuestionType = 'theoretical' | 'practical'
 export interface Question {
   id: string
   type: QuestionType
-  /** Référence courte ex: T-1, P-4 */
-  ref: string
+  /** Référence courte ex: T-1, P-4 — générée dynamiquement à l'attribution */
+  ref?: string
   title: string
   question: string
   /** Réponse attendue (visible uniquement par les experts) */
@@ -55,6 +55,19 @@ export interface Question {
   tags?: string[]
   createdAt: string
   updatedAt: string
+}
+
+// ------------------------------------------------------------
+// Attribution des questions aux élèves
+// ------------------------------------------------------------
+
+export interface StudentQuestion {
+  id: string
+  studentId: string
+  questionId: string
+  /** Position dans la liste (1, 2, 3...) pour générer T-1, T-2, T-3 */
+  position: number
+  createdAt: string
 }
 
 // ------------------------------------------------------------

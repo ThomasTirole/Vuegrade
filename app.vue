@@ -2,6 +2,12 @@
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+
+  <!-- Notifications toast globales -->
+  <UNotifications />
+
+  <!-- Modal de confirmation globale -->
+  <UiConfirmModal />
 </template>
 
 <style>

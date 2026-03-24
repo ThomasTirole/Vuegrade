@@ -4,6 +4,7 @@ const route = useRoute()
 const router = useRouter()
 const db = useDB()
 const studentsStore = useStudentsStore()
+const toast = useToast()
 
 const studentId = route.params.id as string
 
@@ -83,6 +84,11 @@ async function handleSubmit() {
       teacherApiKey: form.teacherApiKey.trim() || undefined,
       passageOrder: form.passageOrder ?? undefined,
       passageTime: form.passageTime.trim() || undefined,
+    })
+    toast.add({
+      title: 'Modifications enregistrées',
+      icon: 'i-heroicons-check-circle',
+      color: 'green',
     })
     router.push(`/students/${studentId}`)
   } catch (e: any) {

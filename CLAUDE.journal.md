@@ -9,6 +9,38 @@
 
 ---
 
+## Session 4 — 2026-03-24
+
+### 🎯 Objectif de la session
+Refonte du système de questions : séparer pool théorique et questions pratiques par élève.
+
+### ✅ Réalisé
+- **Migration Supabase** : nouvelle table `student_questions` pour lier les questions du pool aux élèves avec une position (ordre T-1, T-2, T-3)
+- **Modification schema** : `ref` devenu nullable dans `questions` (généré dynamiquement)
+- **`composables/useDB.ts`** :
+  - Nouvelle section `studentQuestions` (assign, unassign, reorder, getForStudent)
+  - Nouvelles méthodes `questions.getTheoreticalPool()` et `questions.getPracticalForStudent()`
+- **`pages/questions.vue`** : simplifié pour afficher uniquement les questions théoriques du pool (plus de tabs T/P)
+- **`components/ui/QuestionModal.vue`** : refactoré avec prop `mode` ('theoretical' | 'practical'), `ref` retiré du formulaire
+- **`components/student/QuestionSelector.vue`** : nouveau composant modal pour sélectionner des questions du pool
+- **`components/student/StudentQuestions.vue`** : nouveau composant onglet avec 2 sections (théoriques attribuées + pratiques CRUD)
+- **`pages/students/[id]/index.vue`** : ajout de l'onglet "Questions" entre Projet et Oral
+- **`types/index.ts`** : `ref` devenu optionnel, ajout interface `StudentQuestion`
+
+### 🔧 Décisions techniques
+- **Ref dynamique** : les refs T-1, P-1 sont générées à l'affichage selon la position, pas stockées en BDD
+- **Théoriques = pool** : questions avec `type='theoretical'` ET `student_id IS NULL`
+- **Pratiques = par élève** : questions avec `type='practical'` ET `student_id=<élève>`
+- **Réordonnancement** : possibilité de monter/descendre les questions théoriques attribuées
+- **Positions compactées** : après suppression d'une attribution, les positions sont recalculées
+
+### 📋 Prochaine session
+- [ ] Tester le workflow complet : création question pool → attribution élève → affichage oral
+- [ ] Vérifier que `/oral` affiche correctement les questions avec leurs refs
+- [ ] Implémenter Supabase Realtime pour la co-notation
+
+---
+
 ## Session 3 — 2026-03-24
 
 ### 🎯 Objectif de la session
