@@ -1,7 +1,5 @@
 <!-- pages/students/[id]/edit.vue — Formulaire édition élève -->
 <script setup lang="ts">
-import { extractRepoName, inferDeployUrl } from '~/types'
-
 const route = useRoute()
 const router = useRouter()
 const db = useDB()
@@ -56,19 +54,6 @@ watchEffect(() => {
     error.value = fetchError.value.message
   }
 })
-
-// Calcul automatique de l'URL de déploiement
-watch(
-  () => [form.githubUsername, form.repoUrl],
-  ([username, repoUrl]) => {
-    if (username && repoUrl) {
-      const repoName = extractRepoName(repoUrl as string)
-      if (repoName) {
-        form.deployUrl = inferDeployUrl(username as string, repoName)
-      }
-    }
-  }
-)
 
 const isValid = computed(() => {
   return (
