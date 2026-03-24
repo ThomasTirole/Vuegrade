@@ -9,6 +9,27 @@
 
 ---
 
+## Session 3 — 2026-03-24
+
+### 🎯 Objectif de la session
+Corriger les bugs prioritaires identifiés lors des tests de la Session 2.
+
+### ✅ Réalisé
+- **Bug #6 corrigé** : composants `QuestionCard` et `QuestionModal` renommés avec préfixe `Ui` dans `pages/questions.vue` (convention Nuxt 3 pour les composants dans sous-dossiers)
+- **Bug #7 corrigé** : création de `pages/students/index.vue` — liste des élèves avec recherche et tri (par nom ou ordre de passage)
+- **Bug #5 corrigé** : données de test complétées (`api_name` était null)
+
+### 🔧 Décisions techniques
+- **Préfixe Ui** : les composants dans `components/ui/` doivent être appelés `UiNomDuComposant` (auto-import Nuxt 3)
+- **Page liste élèves** : tri par défaut sur `passageOrder`, recherche sur nom/username/description
+
+### 📋 Prochaine session
+- [ ] Tester gitflow avec un vrai repo GitHub
+- [ ] Implémenter Supabase Realtime pour la co-notation
+- [ ] Ajouter d'autres élèves de test
+
+---
+
 ## Session 2 — 2026-03-23
 
 ### 🎯 Objectif de la session

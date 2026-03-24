@@ -90,7 +90,7 @@ async function deleteQuestion(q: Question) {
     <!-- Question list -->
     <div v-else class="question-list">
       <template v-if="activeTab === 'theoretical'">
-        <QuestionCard
+        <UiQuestionCard
           v-for="q in theoreticalQs"
           :key="q.id"
           :question="q"
@@ -104,7 +104,7 @@ async function deleteQuestion(q: Question) {
       </template>
 
       <template v-if="activeTab === 'practical'">
-        <QuestionCard
+        <UiQuestionCard
           v-for="q in practicalQs"
           :key="q.id"
           :question="q"
@@ -119,7 +119,7 @@ async function deleteQuestion(q: Question) {
     </div>
 
     <!-- Question modal -->
-    <QuestionModal
+    <UiQuestionModal
       v-if="showModal"
       :question="editingQuestion"
       :default-type="activeTab"
@@ -127,6 +127,7 @@ async function deleteQuestion(q: Question) {
       @update="questionsStore.updateQuestion($event.id, $event); showModal = false"
       @close="showModal = false"
     />
+
   </div>
 </template>
 

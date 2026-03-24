@@ -7,8 +7,8 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 2
-**Date** : 2026-03-23
+**Session** : Session 3
+**Date** : 2026-03-24
 **Par** : Claude Code (Opus 4.5)
 
 ---
@@ -110,14 +110,19 @@ Supabase (Session 2) :
 | 2 | Route `/api/github/repo` manquante | ✅ Corrigé |
 | 3 | Mise à jour des scores locaux après `upsertGrade` | ✅ Corrigé |
 
-## 🐛 Bugs restants (Session 2)
+## 🐛 Bugs corrigés Session 3
+
+| # | Description | Statut |
+|---|---|---|
+| 5 | Page edit student ne fonctionne pas | ✅ Corrigé (données api_name) |
+| 6 | Questions théoriques non visibles dans le pool | ✅ Corrigé (préfixe Ui) |
+| 7 | Page liste élèves manquante | ✅ Créée |
+
+## 🐛 Bugs restants
 
 | # | Description | Fichier | Priorité |
 |---|---|---|---|
 | 4 | `pages/students/[id].vue` : import `StudentCard` manquant pour le gitflow | `pages/students/[id].vue` | LOW |
-| 5 | Page edit student ne fonctionne pas | `pages/students/[id]/edit.vue` | HIGH |
-| 6 | Questions théoriques non visibles dans le pool | `pages/questions.vue` | HIGH |
-| 7 | Page liste élèves manquante | `pages/students/index.vue` | MEDIUM |
 
 ---
 
