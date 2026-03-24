@@ -1,12 +1,17 @@
 <!-- pages/students/new.vue — Formulaire création élève -->
 <script setup lang="ts">
-import { extractRepoName, inferDeployUrl } from '~/types'
-
 const router = useRouter()
+const db = useDB()
 const studentsStore = useStudentsStore()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// Charger les settings pour la génération automatique des URLs
+const settings = ref<Record<string, string>>({})
+onMounted(async () => {
+  settings.value = await db.settings.getAll()
+})
 
 const form = reactive({
   name: '',
@@ -21,15 +26,15 @@ const form = reactive({
   passageTime: '',
 })
 
-// Calcul automatique de l'URL de déploiement
+// Calcul automatique des URLs quand le username change
 watch(
-  () => [form.githubUsername, form.repoUrl],
-  ([username, repoUrl]) => {
-    if (username && repoUrl) {
-      const repoName = extractRepoName(repoUrl as string)
-      if (repoName) {
-        form.deployUrl = inferDeployUrl(username as string, repoName)
-      }
+  () => form.githubUsername,
+  (username) => {
+    if (username && settings.value.project_template && settings.value.github_org) {
+      const org = settings.value.github_org
+      const template = settings.value.project_template
+      form.repoUrl = `https://github.com/${org}/${template}-${username}`
+      form.deployUrl = `https://${org}.github.io/${template}-${username}`
     }
   }
 )
@@ -92,10 +97,10 @@ async function handleSubmit() {
         <h2 class="section-title">Identité</h2>
         <div class="form-grid">
           <UFormGroup label="Nom complet" required>
-            <UInput v-model="form.name" placeholder="Ex: Bélet Aedan" icon="i-heroicons-user" />
+            <UInput v-model="form.name" placeholder="Ex: Doe John" icon="i-heroicons-user" />
           </UFormGroup>
           <UFormGroup label="Username GitHub" required>
-            <UInput v-model="form.githubUsername" placeholder="Ex: YuriAyato144" icon="i-simple-icons-github" />
+            <UInput v-model="form.githubUsername" placeholder="Ex: johndoe" icon="i-simple-icons-github" />
           </UFormGroup>
         </div>
       </div>
@@ -103,14 +108,14 @@ async function handleSubmit() {
       <!-- Section projet -->
       <div class="form-section">
         <h2 class="section-title">Projet</h2>
-        <UFormGroup label="URL du repo GitHub" required>
-          <UInput v-model="form.repoUrl" placeholder="https://github.com/org/repo" icon="i-heroicons-link" />
+        <UFormGroup label="URL du repo GitHub" required hint="Générée automatiquement depuis le username">
+          <UInput v-model="form.repoUrl" placeholder="https://github.com/org/template-username" icon="i-heroicons-link" />
         </UFormGroup>
-        <UFormGroup label="URL du site déployé" hint="Calculée automatiquement depuis le repo">
-          <UInput v-model="form.deployUrl" placeholder="https://username.github.io/repo/" icon="i-heroicons-globe-alt" />
+        <UFormGroup label="URL du site déployé" hint="Générée automatiquement">
+          <UInput v-model="form.deployUrl" placeholder="https://org.github.io/template-username" icon="i-heroicons-globe-alt" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
-          <UTextarea v-model="form.projectDescription" placeholder="Ex: Affichage des divinités de la mythologie grecque" :rows="3" />
+          <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
         </UFormGroup>
       </div>
 
@@ -119,7 +124,7 @@ async function handleSubmit() {
         <h2 class="section-title">API</h2>
         <div class="form-grid">
           <UFormGroup label="Nom de l'API" required>
-            <UInput v-model="form.apiName" placeholder="Ex: GreekMyth API" icon="i-heroicons-bolt" />
+            <UInput v-model="form.apiName" placeholder="Ex: TodoList API" icon="i-heroicons-bolt" />
           </UFormGroup>
           <UFormGroup label="URL documentation API">
             <UInput v-model="form.apiUrl" placeholder="https://api.example.com/docs" icon="i-heroicons-document-text" />

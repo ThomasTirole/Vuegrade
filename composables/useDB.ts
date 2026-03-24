@@ -191,7 +191,35 @@ export const useDB = () => {
     }
   }
 
-  return { students, questions, oral, experts }
+  // ----------------------------------------------------------
+  // SETTINGS
+  // ----------------------------------------------------------
+  const settings = {
+    async getAll(): Promise<Record<string, string>> {
+      const { data, error } = await supabase.from('settings').select('key, value')
+      if (error) throw error
+      return Object.fromEntries(data.map(s => [s.key, s.value]))
+    },
+
+    async get(key: string): Promise<string | null> {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle()
+      if (error) throw error
+      return data?.value ?? null
+    },
+
+    async set(key: string, value: string): Promise<void> {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key, value }, { onConflict: 'key' })
+      if (error) throw error
+    }
+  }
+
+  return { students, questions, oral, experts, settings }
 }
 
 // ----------------------------------------------------------

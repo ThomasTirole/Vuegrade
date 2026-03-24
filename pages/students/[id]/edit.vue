@@ -140,10 +140,10 @@ async function handleSubmit() {
         <h2 class="section-title">Identité</h2>
         <div class="form-grid">
           <UFormGroup label="Nom complet" required>
-            <UInput v-model="form.name" placeholder="Ex: Bélet Aedan" icon="i-heroicons-user" />
+            <UInput v-model="form.name" placeholder="Ex: Doe John" icon="i-heroicons-user" />
           </UFormGroup>
           <UFormGroup label="Username GitHub" required>
-            <UInput v-model="form.githubUsername" placeholder="Ex: YuriAyato144" icon="i-simple-icons-github" />
+            <UInput v-model="form.githubUsername" placeholder="Ex: johndoe" icon="i-simple-icons-github" />
           </UFormGroup>
         </div>
       </div>
@@ -158,7 +158,7 @@ async function handleSubmit() {
           <UInput v-model="form.deployUrl" placeholder="https://username.github.io/repo/" icon="i-heroicons-globe-alt" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
-          <UTextarea v-model="form.projectDescription" placeholder="Ex: Affichage des divinités de la mythologie grecque" :rows="3" />
+          <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
         </UFormGroup>
       </div>
 
@@ -167,7 +167,7 @@ async function handleSubmit() {
         <h2 class="section-title">API</h2>
         <div class="form-grid">
           <UFormGroup label="Nom de l'API" required>
-            <UInput v-model="form.apiName" placeholder="Ex: GreekMyth API" icon="i-heroicons-bolt" />
+            <UInput v-model="form.apiName" placeholder="Ex: TodoList API" icon="i-heroicons-bolt" />
           </UFormGroup>
           <UFormGroup label="URL documentation API">
             <UInput v-model="form.apiUrl" placeholder="https://api.example.com/docs" icon="i-heroicons-document-text" />

@@ -27,6 +27,12 @@ Corriger les bugs prioritaires identifiés lors des tests de la Session 2.
 - **Page liste élèves** : tri par défaut sur `passageOrder`, recherche sur nom/username/description
 - **Structure routes Nuxt** : pour avoir `/students/[id]` et `/students/[id]/edit`, il faut `[id]/index.vue` + `[id]/edit.vue` (pas `[id].vue` + `[id]/edit.vue`)
 
+### Ajouts supplémentaires
+- **Table `settings`** : nouvelle table Supabase pour stocker les paramètres de l'app (project_template, github_org)
+- **Page settings améliorée** : formulaire éditable pour configurer le template de projet et l'organisation GitHub
+- **Génération automatique des URLs** : dans le formulaire création élève, les URLs repo/deploy sont générées automatiquement à partir du username GitHub
+- **Placeholders génériques** : remplacement des noms réels par des exemples génériques (Doe John, johndoe, etc.)
+
 ### 📋 Prochaine session
 - [ ] Tester gitflow avec un vrai repo GitHub
 - [ ] Implémenter Supabase Realtime pour la co-notation

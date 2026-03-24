@@ -3,14 +3,54 @@ import type { Expert } from '~/types'
 
 const db = useDB()
 const experts = ref<Expert[]>([])
+const settings = ref<Record<string, string>>({})
 const loading = ref(true)
+const saving = ref(false)
+
+// Formulaire settings éditables
+const form = reactive({
+  projectTemplate: '',
+  githubOrg: ''
+})
 
 onMounted(async () => {
   try {
-    experts.value = await db.experts.getAll()
+    const [expertsData, settingsData] = await Promise.all([
+      db.experts.getAll(),
+      db.settings.getAll()
+    ])
+    experts.value = expertsData
+    settings.value = settingsData
+    form.projectTemplate = settingsData.project_template || ''
+    form.githubOrg = settingsData.github_org || ''
   } finally {
     loading.value = false
   }
+})
+
+async function saveSettings() {
+  saving.value = true
+  try {
+    await Promise.all([
+      db.settings.set('project_template', form.projectTemplate),
+      db.settings.set('github_org', form.githubOrg)
+    ])
+    settings.value.project_template = form.projectTemplate
+    settings.value.github_org = form.githubOrg
+  } finally {
+    saving.value = false
+  }
+}
+
+// Génère un exemple d'URL pour prévisualisation
+const exampleRepoUrl = computed(() => {
+  if (!form.githubOrg || !form.projectTemplate) return ''
+  return `https://github.com/${form.githubOrg}/${form.projectTemplate}-{username}`
+})
+
+const exampleDeployUrl = computed(() => {
+  if (!form.githubOrg || !form.projectTemplate) return ''
+  return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
 })
 </script>
 
@@ -48,22 +88,52 @@ onMounted(async () => {
         </p>
       </section>
 
-      <!-- GitHub config -->
+      <!-- Projet config -->
       <section class="settings-section">
         <h2 class="section-title">
           <UIcon name="i-simple-icons-github" />
-          GitHub
+          Configuration projet
         </h2>
-        <p class="section-desc">Configuration de l'intégration GitHub pour le Gitflow.</p>
-        <div class="config-item">
-          <span class="config-key mono">GITHUB_ORG</span>
-          <span class="config-val mono">{{ $config.public.githubOrg || '(non configuré)' }}</span>
+        <p class="section-desc">Paramètres pour la génération automatique des URLs des repos élèves.</p>
+
+        <div class="form-grid">
+          <UFormGroup label="Organisation GitHub">
+            <UInput
+              v-model="form.githubOrg"
+              placeholder="divtec-cejef"
+              icon="i-heroicons-building-office"
+            />
+          </UFormGroup>
+          <UFormGroup label="Template de projet">
+            <UInput
+              v-model="form.projectTemplate"
+              placeholder="m294-projet-vuetify"
+              icon="i-heroicons-document-duplicate"
+            />
+          </UFormGroup>
         </div>
-        <p class="setting-note">
-          <UIcon name="i-heroicons-information-circle" />
-          Configurer via les variables d'environnement (<code class="mono">.env</code>).
-          Le token GitHub reste côté serveur.
-        </p>
+
+        <div v-if="exampleRepoUrl" class="url-preview">
+          <div class="preview-item">
+            <span class="preview-label">Repo</span>
+            <code class="mono">{{ exampleRepoUrl }}</code>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">Deploy</span>
+            <code class="mono">{{ exampleDeployUrl }}</code>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <UButton
+            @click="saveSettings"
+            :loading="saving"
+            icon="i-heroicons-check"
+            size="sm"
+          >
+            Enregistrer
+          </UButton>
+        </div>
       </section>
 
       <!-- Stack info -->
@@ -186,4 +256,43 @@ onMounted(async () => {
 .loading-state { display: flex; justify-content: center; padding: 1rem; color: var(--c-text-muted); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }
+
+/* Form */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.url-preview {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.preview-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.preview-label {
+  color: var(--c-text-muted);
+  min-width: 50px;
+}
+
+.preview-item code {
+  color: var(--c-nuxt);
+  word-break: break-all;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 </style>
