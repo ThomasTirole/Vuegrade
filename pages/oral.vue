@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import type { Student } from '~/types'
 
+interface ManualPause {
+  position: number
+  duration: number
+}
+
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
 const db = useDB()
 
 // Settings pour les pauses
 const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
-const pauseDuration = ref(15) // Durée de la pause en minutes
-const pausePositions = ref<number[]>([]) // Positions manuelles
+const pauseDuration = ref(15) // Durée par défaut des pauses auto en minutes
+const manualPauses = ref<ManualPause[]>([]) // Pauses manuelles avec durée individuelle
+
+// Menu d'ajout de pause
+const showPauseMenu = ref<number | null>(null) // Position où afficher le menu
+const durationOptions = [5, 10, 15]
 
 onMounted(async () => {
   studentsStore.fetchAll()
@@ -18,9 +27,15 @@ onMounted(async () => {
   pauseInterval.value = parseInt(settings.pause_interval || '4', 10)
   pauseDuration.value = parseInt(settings.pause_duration || '15', 10)
   try {
-    pausePositions.value = JSON.parse(settings.pause_positions || '[]')
+    const saved = JSON.parse(settings.pause_positions || '[]')
+    // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
+    if (saved.length > 0 && typeof saved[0] === 'number') {
+      manualPauses.value = saved.map((pos: number) => ({ position: pos, duration: pauseDuration.value }))
+    } else {
+      manualPauses.value = saved
+    }
   } catch {
-    pausePositions.value = []
+    manualPauses.value = []
   }
 })
 
@@ -46,9 +61,9 @@ const allPausePositions = computed(() => {
   }
 
   // Pauses manuelles
-  pausePositions.value.forEach(pos => {
-    if (pos > 0 && pos < sortedStudents.value.length) {
-      positions.add(pos)
+  manualPauses.value.forEach(p => {
+    if (p.position > 0 && p.position < sortedStudents.value.length) {
+      positions.add(p.position)
     }
   })
 
@@ -60,25 +75,56 @@ function hasPauseAfter(index: number): boolean {
   return allPausePositions.value.includes(index + 1)
 }
 
-// Vérifier si une pause manuelle existe à cette position
-function isManualPause(position: number): boolean {
-  return pausePositions.value.includes(position)
+// Récupérer la pause manuelle à une position donnée
+function getManualPause(position: number): ManualPause | undefined {
+  return manualPauses.value.find(p => p.position === position)
 }
 
-// Ajouter une pause manuelle après l'élève à l'index donné
-async function addPauseAfter(index: number) {
+// Vérifier si une pause manuelle existe à cette position
+function isManualPause(position: number): boolean {
+  return manualPauses.value.some(p => p.position === position)
+}
+
+// Obtenir la durée d'une pause (manuelle ou auto)
+function getPauseDuration(position: number): number {
+  const manual = getManualPause(position)
+  return manual ? manual.duration : pauseDuration.value
+}
+
+// Ouvrir le menu d'ajout de pause
+function openPauseMenu(index: number) {
+  showPauseMenu.value = index
+}
+
+// Fermer le menu
+function closePauseMenu() {
+  showPauseMenu.value = null
+}
+
+// Ajouter une pause manuelle avec durée
+async function addPauseWithDuration(index: number, duration: number) {
   const position = index + 1
-  if (!pausePositions.value.includes(position)) {
-    pausePositions.value.push(position)
-    pausePositions.value.sort((a, b) => a - b)
-    await db.settings.set('pause_positions', JSON.stringify(pausePositions.value))
+  if (!isManualPause(position)) {
+    manualPauses.value.push({ position, duration })
+    manualPauses.value.sort((a, b) => a.position - b.position)
+    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+  }
+  closePauseMenu()
+}
+
+// Modifier la durée d'une pause manuelle
+async function updatePauseDuration(position: number, duration: number) {
+  const pause = getManualPause(position)
+  if (pause) {
+    pause.duration = duration
+    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
   }
 }
 
 // Supprimer une pause manuelle
 async function removePause(position: number) {
-  pausePositions.value = pausePositions.value.filter(p => p !== position)
-  await db.settings.set('pause_positions', JSON.stringify(pausePositions.value))
+  manualPauses.value = manualPauses.value.filter(p => p.position !== position)
+  await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
 }
 
 const currentStudent = ref<string | null>(null)
@@ -127,20 +173,48 @@ const currentStudent = ref<string | null>(null)
               </div>
 
               <!-- Bouton ajouter pause (visible au hover si pas déjà de pause) -->
-              <button
+              <div
                 v-if="!hasPauseAfter(idx) && idx < sortedStudents.length - 1"
-                class="add-pause-btn"
-                @click="addPauseAfter(idx)"
-                title="Ajouter une pause ici"
+                class="add-pause-zone"
               >
-                <UIcon name="i-heroicons-plus" />
-              </button>
+                <button
+                  class="add-pause-btn"
+                  @click="openPauseMenu(idx)"
+                  title="Ajouter une pause ici"
+                >
+                  <UIcon name="i-heroicons-plus" />
+                </button>
+                <!-- Menu de sélection durée -->
+                <div v-if="showPauseMenu === idx" class="pause-menu" @mouseleave="closePauseMenu">
+                  <button
+                    v-for="d in durationOptions"
+                    :key="d"
+                    class="pause-menu-item"
+                    @click="addPauseWithDuration(idx, d)"
+                  >
+                    {{ d }}'
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Pause marker après cet élève si configuré -->
             <div v-if="hasPauseAfter(idx)" class="pause-marker">
               <UIcon name="i-heroicons-pause" />
-              <span class="mono">Pause {{ pauseDuration }}' — délibération</span>
+              <!-- Durée cliquable pour les pauses manuelles -->
+              <div v-if="isManualPause(idx + 1)" class="pause-duration-picker">
+                <button
+                  v-for="d in durationOptions"
+                  :key="d"
+                  class="duration-chip"
+                  :class="{ 'duration-chip--active': getPauseDuration(idx + 1) === d }"
+                  @click="updatePauseDuration(idx + 1, d)"
+                >
+                  {{ d }}'
+                </button>
+              </div>
+              <span v-else class="mono">{{ getPauseDuration(idx + 1) }}'</span>
+              <span class="pause-label-text">— délibération</span>
               <button
                 v-if="isManualPause(idx + 1)"
                 class="remove-pause-btn"
@@ -261,11 +335,15 @@ const currentStudent = ref<string | null>(null)
   position: relative;
 }
 
-.add-pause-btn {
+.add-pause-zone {
   position: absolute;
   bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 10;
+}
+
+.add-pause-btn {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -279,7 +357,6 @@ const currentStudent = ref<string | null>(null)
   justify-content: center;
   opacity: 0;
   transition: all 0.15s;
-  z-index: 10;
 }
 
 .schedule-item-wrapper:hover .add-pause-btn {
@@ -289,6 +366,38 @@ const currentStudent = ref<string | null>(null)
 .add-pause-btn:hover {
   background: color-mix(in srgb, var(--c-warn) 15%, transparent);
   border-color: var(--c-warn);
+  color: var(--c-warn);
+}
+
+.pause-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  display: flex;
+  gap: 2px;
+  background: var(--c-bg-card);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 3px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.pause-menu-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-soft);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.pause-menu-item:hover {
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
   color: var(--c-warn);
 }
 
@@ -330,6 +439,39 @@ const currentStudent = ref<string | null>(null)
 
 .remove-pause-btn:hover {
   background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+}
+
+.pause-duration-picker {
+  display: flex;
+  gap: 2px;
+}
+
+.duration-chip {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-warn);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.12s;
+  opacity: 0.5;
+}
+
+.duration-chip:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+}
+
+.duration-chip--active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+  border-color: var(--c-warn);
+}
+
+.pause-label-text {
+  font-family: var(--font-mono);
 }
 
 /* Active panel */

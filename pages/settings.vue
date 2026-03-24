@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { Expert } from '~/types'
 
+interface ManualPause {
+  position: number
+  duration: number
+}
+
 const db = useDB()
 const experts = ref<Expert[]>([])
 const settings = ref<Record<string, string>>({})
@@ -13,7 +18,7 @@ const form = reactive({
   githubOrg: '',
   pauseInterval: 4,
   pauseDuration: 15,
-  pausePositions: [] as number[]
+  manualPauses: [] as ManualPause[]
 })
 
 // Options de durée de pause
@@ -39,9 +44,15 @@ onMounted(async () => {
     form.pauseInterval = parseInt(settingsData.pause_interval || '4', 10)
     form.pauseDuration = parseInt(settingsData.pause_duration || '15', 10)
     try {
-      form.pausePositions = JSON.parse(settingsData.pause_positions || '[]')
+      const saved = JSON.parse(settingsData.pause_positions || '[]')
+      // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
+      if (saved.length > 0 && typeof saved[0] === 'number') {
+        form.manualPauses = saved.map((pos: number) => ({ position: pos, duration: form.pauseDuration }))
+      } else {
+        form.manualPauses = saved
+      }
     } catch {
-      form.pausePositions = []
+      form.manualPauses = []
     }
   } finally {
     loading.value = false
@@ -58,13 +69,13 @@ async function saveSettings() {
       db.settings.set('github_org', form.githubOrg),
       db.settings.set('pause_interval', String(form.pauseInterval)),
       db.settings.set('pause_duration', String(form.pauseDuration)),
-      db.settings.set('pause_positions', JSON.stringify(form.pausePositions))
+      db.settings.set('pause_positions', JSON.stringify(form.manualPauses))
     ])
     settings.value.project_template = form.projectTemplate
     settings.value.github_org = form.githubOrg
     settings.value.pause_interval = String(form.pauseInterval)
     settings.value.pause_duration = String(form.pauseDuration)
-    settings.value.pause_positions = JSON.stringify(form.pausePositions)
+    settings.value.pause_positions = JSON.stringify(form.manualPauses)
     toast.add({ title: 'Paramètres enregistrés', icon: 'i-heroicons-check-circle', color: 'green' })
   } finally {
     saving.value = false
@@ -73,16 +84,21 @@ async function saveSettings() {
 
 function addPausePosition() {
   if (newPausePosition.value && newPausePosition.value > 0) {
-    if (!form.pausePositions.includes(newPausePosition.value)) {
-      form.pausePositions.push(newPausePosition.value)
-      form.pausePositions.sort((a, b) => a - b)
+    const exists = form.manualPauses.some(p => p.position === newPausePosition.value)
+    if (!exists) {
+      form.manualPauses.push({ position: newPausePosition.value, duration: form.pauseDuration })
+      form.manualPauses.sort((a, b) => a.position - b.position)
     }
     newPausePosition.value = null
   }
 }
 
-function removePausePosition(pos: number) {
-  form.pausePositions = form.pausePositions.filter(p => p !== pos)
+function removePausePosition(pause: ManualPause) {
+  form.manualPauses = form.manualPauses.filter(p => p.position !== pause.position)
+}
+
+function updatePauseDuration(pause: ManualPause, duration: number) {
+  pause.duration = duration
 }
 
 // Génère un exemple d'URL pour prévisualisation
@@ -190,9 +206,9 @@ const exampleDeployUrl = computed(() => {
         </p>
 
         <div class="pause-config">
-          <!-- Durée des pauses -->
+          <!-- Durée des pauses automatiques -->
           <div class="pause-duration">
-            <span class="pause-label">Durée des pauses :</span>
+            <span class="pause-label">Durée des pauses auto :</span>
             <div class="duration-buttons">
               <button
                 v-for="opt in durationOptions"
@@ -225,9 +241,20 @@ const exampleDeployUrl = computed(() => {
           <div class="pause-manual">
             <span class="pause-label">Pauses manuelles (après le nème élève) :</span>
             <div class="manual-positions">
-              <div v-for="pos in form.pausePositions" :key="pos" class="position-tag">
-                <span class="mono">{{ pos }}</span>
-                <button class="tag-remove" @click="removePausePosition(pos)">
+              <div v-for="pause in form.manualPauses" :key="pause.position" class="position-tag">
+                <span class="mono position-num">{{ pause.position }}</span>
+                <div class="position-duration">
+                  <button
+                    v-for="opt in durationOptions"
+                    :key="opt.value"
+                    class="mini-duration-btn"
+                    :class="{ 'mini-duration-btn--active': pause.duration === opt.value }"
+                    @click="updatePauseDuration(pause, opt.value)"
+                  >
+                    {{ opt.value }}'
+                  </button>
+                </div>
+                <button class="tag-remove" @click="removePausePosition(pause)">
                   <UIcon name="i-heroicons-x-mark" />
                 </button>
               </div>
@@ -506,6 +533,40 @@ const exampleDeployUrl = computed(() => {
 
 .position-input {
   width: 60px;
+}
+
+.position-num {
+  min-width: 20px;
+  text-align: center;
+}
+
+.position-duration {
+  display: flex;
+  gap: 1px;
+  margin-left: 4px;
+}
+
+.mini-duration-btn {
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--c-warn);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: all 0.12s;
+}
+
+.mini-duration-btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+}
+
+.mini-duration-btn--active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 25%, transparent);
 }
 
 /* Duration buttons */
