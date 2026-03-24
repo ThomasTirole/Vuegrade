@@ -1,8 +1,26 @@
 <script setup lang="ts">
+import type { Student } from '~/types'
+
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const db = useDB()
 
-onMounted(() => studentsStore.fetchAll())
+// Settings pour les pauses
+const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
+const pausePositions = ref<number[]>([]) // Positions manuelles
+
+onMounted(async () => {
+  studentsStore.fetchAll()
+
+  // Charger les settings de pause
+  const settings = await db.settings.getAll()
+  pauseInterval.value = parseInt(settings.pause_interval || '4', 10)
+  try {
+    pausePositions.value = JSON.parse(settings.pause_positions || '[]')
+  } catch {
+    pausePositions.value = []
+  }
+})
 
 // Trier par ordre de passage
 const sortedStudents = computed(() =>
@@ -12,6 +30,33 @@ const sortedStudents = computed(() =>
     return a.passageOrder - b.passageOrder
   })
 )
+
+// Calculer les positions de pause (auto + manuelles, sans doublons)
+const allPausePositions = computed(() => {
+  const positions = new Set<number>()
+
+  // Pauses automatiques (après chaque X élèves)
+  if (pauseInterval.value > 0) {
+    const total = sortedStudents.value.length
+    for (let i = pauseInterval.value; i < total; i += pauseInterval.value) {
+      positions.add(i)
+    }
+  }
+
+  // Pauses manuelles
+  pausePositions.value.forEach(pos => {
+    if (pos > 0 && pos < sortedStudents.value.length) {
+      positions.add(pos)
+    }
+  })
+
+  return Array.from(positions).sort((a, b) => a - b)
+})
+
+// Vérifier si une pause doit être affichée après l'élève à l'index donné
+function hasPauseAfter(index: number): boolean {
+  return allPausePositions.value.includes(index + 1)
+}
 
 const currentStudent = ref<string | null>(null)
 </script>
@@ -36,32 +81,33 @@ const currentStudent = ref<string | null>(null)
         </div>
 
         <div v-else class="schedule-items">
-          <div
-            v-for="(student, idx) in sortedStudents"
-            :key="student.id"
-            class="schedule-item"
-            :class="{ 'schedule-item--active': currentStudent === student.id }"
-            @click="currentStudent = student.id"
-          >
-            <span class="passage-num mono">{{ idx + 1 }}</span>
-            <div class="passage-info">
-              <span class="passage-name">{{ student.name }}</span>
-              <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
-            </div>
-            <NuxtLink
-              :to="`/students/${student.id}`"
-              class="go-btn"
-              @click.stop
-              title="Ouvrir la fiche"
+          <template v-for="(student, idx) in sortedStudents" :key="student.id">
+            <div
+              class="schedule-item"
+              :class="{ 'schedule-item--active': currentStudent === student.id }"
+              @click="currentStudent = student.id"
             >
-              <UIcon name="i-heroicons-arrow-right" />
-            </NuxtLink>
-          </div>
+              <span class="passage-num mono">{{ idx + 1 }}</span>
+              <div class="passage-info">
+                <span class="passage-name">{{ student.name }}</span>
+                <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
+              </div>
+              <NuxtLink
+                :to="`/students/${student.id}`"
+                class="go-btn"
+                @click.stop
+                title="Ouvrir la fiche"
+              >
+                <UIcon name="i-heroicons-arrow-right" />
+              </NuxtLink>
+            </div>
 
-          <!-- Pause markers (configurable) -->
-          <div class="pause-marker">
-            <span class="mono">⏸ Pause 15' — délibération</span>
-          </div>
+            <!-- Pause marker après cet élève si configuré -->
+            <div v-if="hasPauseAfter(idx)" class="pause-marker">
+              <UIcon name="i-heroicons-pause" />
+              <span class="mono">Pause 15' — délibération</span>
+            </div>
+          </template>
         </div>
       </aside>
 
@@ -169,10 +215,16 @@ const currentStudent = ref<string | null>(null)
 .go-btn:hover { background: var(--c-bg-hover); color: var(--c-nuxt); }
 
 .pause-marker {
-  padding: 0.6rem 1rem;
-  color: var(--c-text-muted); font-size: 0.7rem;
-  border-top: 1px dashed var(--c-border);
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  color: var(--c-warn);
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--c-warn) 8%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
 }
 
 /* Active panel */

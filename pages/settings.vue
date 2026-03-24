@@ -10,8 +10,13 @@ const saving = ref(false)
 // Formulaire settings éditables
 const form = reactive({
   projectTemplate: '',
-  githubOrg: ''
+  githubOrg: '',
+  pauseInterval: 4,
+  pausePositions: [] as number[]
 })
+
+// Pour ajouter une position manuelle
+const newPausePosition = ref<number | null>(null)
 
 onMounted(async () => {
   try {
@@ -23,23 +28,50 @@ onMounted(async () => {
     settings.value = settingsData
     form.projectTemplate = settingsData.project_template || ''
     form.githubOrg = settingsData.github_org || ''
+    form.pauseInterval = parseInt(settingsData.pause_interval || '4', 10)
+    try {
+      form.pausePositions = JSON.parse(settingsData.pause_positions || '[]')
+    } catch {
+      form.pausePositions = []
+    }
   } finally {
     loading.value = false
   }
 })
+
+const toast = useToast()
 
 async function saveSettings() {
   saving.value = true
   try {
     await Promise.all([
       db.settings.set('project_template', form.projectTemplate),
-      db.settings.set('github_org', form.githubOrg)
+      db.settings.set('github_org', form.githubOrg),
+      db.settings.set('pause_interval', String(form.pauseInterval)),
+      db.settings.set('pause_positions', JSON.stringify(form.pausePositions))
     ])
     settings.value.project_template = form.projectTemplate
     settings.value.github_org = form.githubOrg
+    settings.value.pause_interval = String(form.pauseInterval)
+    settings.value.pause_positions = JSON.stringify(form.pausePositions)
+    toast.add({ title: 'Paramètres enregistrés', icon: 'i-heroicons-check-circle', color: 'green' })
   } finally {
     saving.value = false
   }
+}
+
+function addPausePosition() {
+  if (newPausePosition.value && newPausePosition.value > 0) {
+    if (!form.pausePositions.includes(newPausePosition.value)) {
+      form.pausePositions.push(newPausePosition.value)
+      form.pausePositions.sort((a, b) => a - b)
+    }
+    newPausePosition.value = null
+  }
+}
+
+function removePausePosition(pos: number) {
+  form.pausePositions = form.pausePositions.filter(p => p !== pos)
 }
 
 // Génère un exemple d'URL pour prévisualisation
@@ -121,6 +153,78 @@ const exampleDeployUrl = computed(() => {
           <div class="preview-item">
             <span class="preview-label">Deploy</span>
             <code class="mono">{{ exampleDeployUrl }}</code>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <UButton
+            @click="saveSettings"
+            :loading="saving"
+            icon="i-heroicons-check"
+            size="sm"
+          >
+            Enregistrer
+          </UButton>
+        </div>
+      </section>
+
+      <!-- Pauses délibération -->
+      <section class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-pause" />
+          Pauses de délibération
+        </h2>
+        <p class="section-desc">
+          Configurez les pauses de 15 minutes pour la délibération pendant les passages oraux.
+        </p>
+
+        <div class="pause-config">
+          <!-- Pause automatique -->
+          <div class="pause-auto">
+            <span class="pause-label">Pause automatique tous les</span>
+            <UInput
+              v-model.number="form.pauseInterval"
+              type="number"
+              :min="0"
+              :max="20"
+              class="pause-input"
+              placeholder="4"
+            />
+            <span class="pause-label">élèves</span>
+            <span class="pause-hint mono">(0 = désactivé)</span>
+          </div>
+
+          <!-- Pauses manuelles -->
+          <div class="pause-manual">
+            <span class="pause-label">Pauses manuelles (après le nème élève) :</span>
+            <div class="manual-positions">
+              <div v-for="pos in form.pausePositions" :key="pos" class="position-tag">
+                <span class="mono">{{ pos }}</span>
+                <button class="tag-remove" @click="removePausePosition(pos)">
+                  <UIcon name="i-heroicons-x-mark" />
+                </button>
+              </div>
+              <div class="add-position">
+                <UInput
+                  v-model.number="newPausePosition"
+                  type="number"
+                  :min="1"
+                  :max="50"
+                  placeholder="N°"
+                  class="position-input"
+                  @keyup.enter="addPausePosition"
+                />
+                <UButton
+                  icon="i-heroicons-plus"
+                  size="xs"
+                  variant="soft"
+                  @click="addPausePosition"
+                  :disabled="!newPausePosition"
+                >
+                  Ajouter
+                </UButton>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -294,5 +398,86 @@ const exampleDeployUrl = computed(() => {
 .form-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+/* Pause config */
+.pause-config {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pause-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pause-label {
+  font-size: 0.85rem;
+  color: var(--c-text-soft);
+}
+
+.pause-input {
+  width: 70px;
+}
+
+.pause-hint {
+  font-size: 0.75rem;
+  color: var(--c-text-muted);
+}
+
+.pause-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.position-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-warn) 30%, transparent);
+  border-radius: 6px;
+  color: var(--c-warn);
+  font-size: 0.8rem;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--c-warn);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tag-remove:hover {
+  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+}
+
+.add-position {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.position-input {
+  width: 60px;
 }
 </style>
