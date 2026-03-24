@@ -9,10 +9,17 @@ const studentsStore = useStudentsStore()
 
 const studentId = route.params.id as string
 
-const pageLoading = ref(true)
 const submitLoading = ref(false)
 const error = ref<string | null>(null)
-const notFound = ref(false)
+
+// Chargement des données côté client uniquement
+const { data: student, status, error: fetchError } = useLazyAsyncData(
+  `student-edit-${studentId}`,
+  () => db.students.getById(studentId)
+)
+
+const pageLoading = computed(() => status.value === 'pending')
+const notFound = computed(() => status.value === 'success' && !student.value)
 
 const form = reactive({
   name: '',
@@ -27,28 +34,26 @@ const form = reactive({
   passageTime: '',
 })
 
-onMounted(async () => {
-  try {
-    const student = await db.students.getById(studentId)
-    if (!student) {
-      notFound.value = true
-      return
-    }
-    // Pré-remplir le formulaire
-    form.name = student.name
-    form.githubUsername = student.githubUsername
-    form.repoUrl = student.repoUrl
-    form.deployUrl = student.deployUrl ?? ''
-    form.projectDescription = student.projectDescription
-    form.apiName = student.apiName
-    form.apiUrl = student.apiUrl ?? ''
-    form.teacherApiKey = student.teacherApiKey ?? ''
-    form.passageOrder = student.passageOrder ?? null
-    form.passageTime = student.passageTime ?? ''
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    pageLoading.value = false
+// Pré-remplir le formulaire quand les données sont chargées
+watchEffect(() => {
+  if (student.value) {
+    form.name = student.value.name
+    form.githubUsername = student.value.githubUsername
+    form.repoUrl = student.value.repoUrl
+    form.deployUrl = student.value.deployUrl ?? ''
+    form.projectDescription = student.value.projectDescription ?? ''
+    form.apiName = student.value.apiName ?? ''
+    form.apiUrl = student.value.apiUrl ?? ''
+    form.teacherApiKey = student.value.teacherApiKey ?? ''
+    form.passageOrder = student.value.passageOrder ?? null
+    form.passageTime = student.value.passageTime ?? ''
+  }
+})
+
+// Afficher l'erreur de fetch si présente
+watchEffect(() => {
+  if (fetchError.value) {
+    error.value = fetchError.value.message
   }
 })
 

@@ -17,11 +17,15 @@ Corriger les bugs prioritaires identifiés lors des tests de la Session 2.
 ### ✅ Réalisé
 - **Bug #6 corrigé** : composants `QuestionCard` et `QuestionModal` renommés avec préfixe `Ui` dans `pages/questions.vue` (convention Nuxt 3 pour les composants dans sous-dossiers)
 - **Bug #7 corrigé** : création de `pages/students/index.vue` — liste des élèves avec recherche et tri (par nom ou ordre de passage)
-- **Bug #5 corrigé** : données de test complétées (`api_name` était null)
+- **Bug #5 corrigé** :
+  - Données de test complétées (`api_name` était null)
+  - Déplacement `[id].vue` → `[id]/index.vue` (conflit de routes Nuxt)
+  - Utilisation de `useLazyAsyncData` au lieu de `onMounted` pour le chargement
 
 ### 🔧 Décisions techniques
 - **Préfixe Ui** : les composants dans `components/ui/` doivent être appelés `UiNomDuComposant` (auto-import Nuxt 3)
 - **Page liste élèves** : tri par défaut sur `passageOrder`, recherche sur nom/username/description
+- **Structure routes Nuxt** : pour avoir `/students/[id]` et `/students/[id]/edit`, il faut `[id]/index.vue` + `[id]/edit.vue` (pas `[id].vue` + `[id]/edit.vue`)
 
 ### 📋 Prochaine session
 - [ ] Tester gitflow avec un vrai repo GitHub
