@@ -7,6 +7,7 @@ const db = useDB()
 
 // Settings pour les pauses
 const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
+const pauseDuration = ref(15) // Durée de la pause en minutes
 const pausePositions = ref<number[]>([]) // Positions manuelles
 
 onMounted(async () => {
@@ -15,6 +16,7 @@ onMounted(async () => {
   // Charger les settings de pause
   const settings = await db.settings.getAll()
   pauseInterval.value = parseInt(settings.pause_interval || '4', 10)
+  pauseDuration.value = parseInt(settings.pause_duration || '15', 10)
   try {
     pausePositions.value = JSON.parse(settings.pause_positions || '[]')
   } catch {
@@ -58,6 +60,27 @@ function hasPauseAfter(index: number): boolean {
   return allPausePositions.value.includes(index + 1)
 }
 
+// Vérifier si une pause manuelle existe à cette position
+function isManualPause(position: number): boolean {
+  return pausePositions.value.includes(position)
+}
+
+// Ajouter une pause manuelle après l'élève à l'index donné
+async function addPauseAfter(index: number) {
+  const position = index + 1
+  if (!pausePositions.value.includes(position)) {
+    pausePositions.value.push(position)
+    pausePositions.value.sort((a, b) => a - b)
+    await db.settings.set('pause_positions', JSON.stringify(pausePositions.value))
+  }
+}
+
+// Supprimer une pause manuelle
+async function removePause(position: number) {
+  pausePositions.value = pausePositions.value.filter(p => p !== position)
+  await db.settings.set('pause_positions', JSON.stringify(pausePositions.value))
+}
+
 const currentStudent = ref<string | null>(null)
 </script>
 
@@ -82,30 +105,50 @@ const currentStudent = ref<string | null>(null)
 
         <div v-else class="schedule-items">
           <template v-for="(student, idx) in sortedStudents" :key="student.id">
-            <div
-              class="schedule-item"
-              :class="{ 'schedule-item--active': currentStudent === student.id }"
-              @click="currentStudent = student.id"
-            >
-              <span class="passage-num mono">{{ idx + 1 }}</span>
-              <div class="passage-info">
-                <span class="passage-name">{{ student.name }}</span>
-                <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
-              </div>
-              <NuxtLink
-                :to="`/students/${student.id}`"
-                class="go-btn"
-                @click.stop
-                title="Ouvrir la fiche"
+            <div class="schedule-item-wrapper">
+              <div
+                class="schedule-item"
+                :class="{ 'schedule-item--active': currentStudent === student.id }"
+                @click="currentStudent = student.id"
               >
-                <UIcon name="i-heroicons-arrow-right" />
-              </NuxtLink>
+                <span class="passage-num mono">{{ idx + 1 }}</span>
+                <div class="passage-info">
+                  <span class="passage-name">{{ student.name }}</span>
+                  <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
+                </div>
+                <NuxtLink
+                  :to="`/students/${student.id}`"
+                  class="go-btn"
+                  @click.stop
+                  title="Ouvrir la fiche"
+                >
+                  <UIcon name="i-heroicons-arrow-right" />
+                </NuxtLink>
+              </div>
+
+              <!-- Bouton ajouter pause (visible au hover si pas déjà de pause) -->
+              <button
+                v-if="!hasPauseAfter(idx) && idx < sortedStudents.length - 1"
+                class="add-pause-btn"
+                @click="addPauseAfter(idx)"
+                title="Ajouter une pause ici"
+              >
+                <UIcon name="i-heroicons-plus" />
+              </button>
             </div>
 
             <!-- Pause marker après cet élève si configuré -->
             <div v-if="hasPauseAfter(idx)" class="pause-marker">
               <UIcon name="i-heroicons-pause" />
-              <span class="mono">Pause 15' — délibération</span>
+              <span class="mono">Pause {{ pauseDuration }}' — délibération</span>
+              <button
+                v-if="isManualPause(idx + 1)"
+                class="remove-pause-btn"
+                @click="removePause(idx + 1)"
+                title="Supprimer cette pause"
+              >
+                <UIcon name="i-heroicons-x-mark" />
+              </button>
             </div>
           </template>
         </div>
@@ -214,6 +257,41 @@ const currentStudent = ref<string | null>(null)
 }
 .go-btn:hover { background: var(--c-bg-hover); color: var(--c-nuxt); }
 
+.schedule-item-wrapper {
+  position: relative;
+}
+
+.add-pause-btn {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-bg-card);
+  border: 1px dashed var(--c-border);
+  color: var(--c-text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  z-index: 10;
+}
+
+.schedule-item-wrapper:hover .add-pause-btn {
+  opacity: 1;
+}
+
+.add-pause-btn:hover {
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+  border-color: var(--c-warn);
+  color: var(--c-warn);
+}
+
 .pause-marker {
   display: flex;
   align-items: center;
@@ -225,6 +303,33 @@ const currentStudent = ref<string | null>(null)
   background: color-mix(in srgb, var(--c-warn) 8%, transparent);
   border-top: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
   border-bottom: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
+  position: relative;
+}
+
+.remove-pause-btn {
+  position: absolute;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--c-warn);
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.pause-marker:hover .remove-pause-btn {
+  opacity: 1;
+}
+
+.remove-pause-btn:hover {
+  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
 }
 
 /* Active panel */

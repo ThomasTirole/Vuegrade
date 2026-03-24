@@ -12,8 +12,16 @@ const form = reactive({
   projectTemplate: '',
   githubOrg: '',
   pauseInterval: 4,
+  pauseDuration: 15,
   pausePositions: [] as number[]
 })
+
+// Options de durée de pause
+const durationOptions = [
+  { label: '5 min', value: 5 },
+  { label: '10 min', value: 10 },
+  { label: '15 min', value: 15 }
+]
 
 // Pour ajouter une position manuelle
 const newPausePosition = ref<number | null>(null)
@@ -29,6 +37,7 @@ onMounted(async () => {
     form.projectTemplate = settingsData.project_template || ''
     form.githubOrg = settingsData.github_org || ''
     form.pauseInterval = parseInt(settingsData.pause_interval || '4', 10)
+    form.pauseDuration = parseInt(settingsData.pause_duration || '15', 10)
     try {
       form.pausePositions = JSON.parse(settingsData.pause_positions || '[]')
     } catch {
@@ -48,11 +57,13 @@ async function saveSettings() {
       db.settings.set('project_template', form.projectTemplate),
       db.settings.set('github_org', form.githubOrg),
       db.settings.set('pause_interval', String(form.pauseInterval)),
+      db.settings.set('pause_duration', String(form.pauseDuration)),
       db.settings.set('pause_positions', JSON.stringify(form.pausePositions))
     ])
     settings.value.project_template = form.projectTemplate
     settings.value.github_org = form.githubOrg
     settings.value.pause_interval = String(form.pauseInterval)
+    settings.value.pause_duration = String(form.pauseDuration)
     settings.value.pause_positions = JSON.stringify(form.pausePositions)
     toast.add({ title: 'Paramètres enregistrés', icon: 'i-heroicons-check-circle', color: 'green' })
   } finally {
@@ -175,10 +186,26 @@ const exampleDeployUrl = computed(() => {
           Pauses de délibération
         </h2>
         <p class="section-desc">
-          Configurez les pauses de 15 minutes pour la délibération pendant les passages oraux.
+          Configurez les pauses de délibération pendant les passages oraux.
         </p>
 
         <div class="pause-config">
+          <!-- Durée des pauses -->
+          <div class="pause-duration">
+            <span class="pause-label">Durée des pauses :</span>
+            <div class="duration-buttons">
+              <button
+                v-for="opt in durationOptions"
+                :key="opt.value"
+                class="duration-btn"
+                :class="{ 'duration-btn--active': form.pauseDuration === opt.value }"
+                @click="form.pauseDuration = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
           <!-- Pause automatique -->
           <div class="pause-auto">
             <span class="pause-label">Pause automatique tous les</span>
@@ -479,5 +506,40 @@ const exampleDeployUrl = computed(() => {
 
 .position-input {
   width: 60px;
+}
+
+/* Duration buttons */
+.pause-duration {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.duration-buttons {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.duration-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--c-border);
+  background: var(--c-bg);
+  color: var(--c-text-soft);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.duration-btn:hover {
+  border-color: var(--c-nuxt);
+  color: var(--c-nuxt);
+}
+
+.duration-btn--active {
+  background: color-mix(in srgb, var(--c-nuxt) 12%, transparent);
+  border-color: var(--c-nuxt);
+  color: var(--c-nuxt);
 }
 </style>
