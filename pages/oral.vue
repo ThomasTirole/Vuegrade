@@ -17,6 +17,7 @@ const manualPauses = ref<ManualPause[]>([]) // Pauses manuelles avec durée indi
 
 // Menu d'ajout de pause
 const showPauseMenu = ref<number | null>(null) // Position où afficher le menu
+const expandedDuration = ref<number | null>(null) // Position de la pause dont on édite la durée
 const durationOptions = [5, 10, 15]
 
 onMounted(async () => {
@@ -112,6 +113,11 @@ async function addPauseWithDuration(index: number, duration: number) {
   closePauseMenu()
 }
 
+// Ouvrir/fermer le sélecteur de durée sur une pause existante
+function toggleDurationPicker(position: number) {
+  expandedDuration.value = expandedDuration.value === position ? null : position
+}
+
 // Modifier la durée d'une pause manuelle
 async function updatePauseDuration(position: number, duration: number) {
   const pause = getManualPause(position)
@@ -119,6 +125,7 @@ async function updatePauseDuration(position: number, duration: number) {
     pause.duration = duration
     await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
   }
+  expandedDuration.value = null // Fermer après sélection
 }
 
 // Supprimer une pause manuelle
@@ -203,15 +210,25 @@ const currentStudent = ref<string | null>(null)
               <UIcon name="i-heroicons-pause" />
               <!-- Durée cliquable pour les pauses manuelles -->
               <div v-if="isManualPause(idx + 1)" class="pause-duration-picker">
+                <!-- Durée sélectionnée (toujours visible, cliquable) -->
                 <button
-                  v-for="d in durationOptions"
-                  :key="d"
-                  class="duration-chip"
-                  :class="{ 'duration-chip--active': getPauseDuration(idx + 1) === d }"
-                  @click="updatePauseDuration(idx + 1, d)"
+                  class="duration-selected"
+                  @click="toggleDurationPicker(idx + 1)"
+                  title="Modifier la durée"
                 >
-                  {{ d }}'
+                  {{ getPauseDuration(idx + 1) }}'
                 </button>
+                <!-- Options qui se déploient -->
+                <template v-if="expandedDuration === idx + 1">
+                  <button
+                    v-for="d in durationOptions.filter(d => d !== getPauseDuration(idx + 1))"
+                    :key="d"
+                    class="duration-option"
+                    @click="updatePauseDuration(idx + 1, d)"
+                  >
+                    {{ d }}'
+                  </button>
+                </template>
               </div>
               <span v-else class="mono">{{ getPauseDuration(idx + 1) }}'</span>
               <span class="pause-label-text">— délibération</span>
@@ -443,31 +460,50 @@ const currentStudent = ref<string | null>(null)
 
 .pause-duration-picker {
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 
-.duration-chip {
+.duration-selected {
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--c-warn) 40%, transparent);
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
   color: var(--c-warn);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.duration-selected:hover {
+  background: color-mix(in srgb, var(--c-warn) 25%, transparent);
+  border-color: var(--c-warn);
+}
+
+.duration-option {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px dashed var(--c-border);
+  background: var(--c-bg-card);
+  color: var(--c-text-muted);
   font-family: var(--font-mono);
   font-size: 0.65rem;
   cursor: pointer;
-  transition: all 0.12s;
-  opacity: 0.5;
+  transition: all 0.15s;
+  animation: slideIn 0.15s ease;
 }
 
-.duration-chip:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
-}
-
-.duration-chip--active {
-  opacity: 1;
-  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+.duration-option:hover {
   border-color: var(--c-warn);
+  color: var(--c-warn);
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .pause-label-text {
