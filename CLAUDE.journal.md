@@ -34,8 +34,8 @@ Suite de la session 4 : corrections de bugs et implémentation du système de pa
 - **Pauses hybrides** : combinaison auto (tous les X) + manuelles pour flexibilité maximale
 
 ### 📋 Prochaine session
-- [ ] **PRIORITÉ** : Ajouter la durée de pause configurable (5/10/15 minutes) dans Settings
-- [ ] **PRIORITÉ** : Ajouter bouton "+" dans la liste de passage oral pour insérer des pauses directement (entre élèves ou en bas de liste)
+- [x] ~~**PRIORITÉ** : Ajouter la durée de pause configurable (5/10/15 minutes) dans Settings~~ ✅
+- [x] ~~**PRIORITÉ** : Ajouter bouton "+" dans la liste de passage oral pour insérer des pauses directement~~ ✅
 - [ ] Tester le système de pauses avec plusieurs élèves
 - [ ] Implémenter Supabase Realtime pour la co-notation
 - [ ] Améliorer le gitflow viewer
