@@ -9,6 +9,38 @@
 
 ---
 
+## Session 5 — 2026-03-24
+
+### 🎯 Objectif de la session
+Suite de la session 4 : corrections de bugs et implémentation du système de pauses de délibération.
+
+### ✅ Réalisé
+- **Correction badges T-1 vides** : auto-génération des refs T-X à la création des questions théoriques dans le store
+- **Correction oral affichant toutes les questions** : nouvelle méthode `db.questions.getAssignedForStudent()` pour ne récupérer que les questions attribuées
+- **Nettoyage BDD** : suppression d'une question pratique orpheline, correction ref vide sur "Composants Vue"
+- **Suppression d'élève** : ajout du bouton suppression avec confirmation via `useConfirm`
+- **UX modals et toasts** : remplacement des `confirm()` natifs par des modales Nuxt UI + notifications toast
+- **Terminaison d'oral** : bouton "Terminer l'oral" + statut `completed` + possibilité de rouvrir
+- **Système de pauses configurable** :
+  - Pauses automatiques tous les X élèves (configurable)
+  - Pauses manuelles à des positions spécifiques
+  - Settings stockés en Supabase (`pause_interval`, `pause_positions`)
+  - Interface de configuration dans la page Settings
+  - Affichage dynamique des marqueurs de pause dans `/oral`
+
+### 🔧 Décisions techniques
+- **Refs dynamiques pour pratiques** : P-1, P-2 calculés à l'affichage (index + 1), pas stockés en BDD
+- **Refs stockées pour théoriques** : T-1, T-2 générés à la création et stockés en BDD
+- **Pauses hybrides** : combinaison auto (tous les X) + manuelles pour flexibilité maximale
+
+### 📋 Prochaine session
+- [ ] **PRIORITÉ** : Ajouter la durée de pause configurable (5/10/15 minutes) dans Settings
+- [ ] Tester le système de pauses avec plusieurs élèves
+- [ ] Implémenter Supabase Realtime pour la co-notation
+- [ ] Améliorer le gitflow viewer
+
+---
+
 ## Session 4 — 2026-03-24
 
 ### 🎯 Objectif de la session
