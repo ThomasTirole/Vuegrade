@@ -39,11 +39,12 @@ export default defineNuxtConfig({
   // App metadata
   app: {
     head: {
-      title: 'VuGrade — M294',
+      title: 'VueGrade — M294',
       meta: [
         { name: 'description', content: 'Outil de suivi et notation des projets Vue.js — Module 294' }
       ],
       link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {

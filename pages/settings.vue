@@ -1,16 +1,200 @@
 <script setup lang="ts">
 import type { Expert } from '~/types'
 
+interface ManualPause {
+  position: number
+  duration: number
+}
+
 const db = useDB()
+const toast = useToast()
 const experts = ref<Expert[]>([])
+const settings = ref<Record<string, string>>({})
 const loading = ref(true)
+const saving = ref(false)
+
+// --- CRUD Experts ---
+const showExpertModal = ref(false)
+const editingExpert = ref<Expert | null>(null)
+const savingExpert = ref(false)
+const expertForm = reactive({
+  name: '',
+  initials: '',
+  role: 'expert' as Expert['role']
+})
+
+const roleOptions = [
+  { label: 'Expert', value: 'expert' },
+  { label: 'Enseignant', value: 'teacher' }
+]
+
+function openAddExpert() {
+  editingExpert.value = null
+  expertForm.name = ''
+  expertForm.initials = ''
+  expertForm.role = 'expert'
+  showExpertModal.value = true
+}
+
+function openEditExpert(expert: Expert) {
+  editingExpert.value = expert
+  expertForm.name = expert.name
+  expertForm.initials = expert.initials
+  expertForm.role = expert.role
+  showExpertModal.value = true
+}
+
+async function saveExpert() {
+  if (!expertForm.name.trim() || !expertForm.initials.trim()) {
+    toast.add({ title: 'Nom et initiales requis', icon: 'i-heroicons-exclamation-triangle', color: 'red' })
+    return
+  }
+
+  savingExpert.value = true
+  try {
+    if (editingExpert.value) {
+      const updated = await db.experts.update(editingExpert.value.id, {
+        name: expertForm.name.trim(),
+        initials: expertForm.initials.trim().toUpperCase(),
+        role: expertForm.role
+      })
+      const idx = experts.value.findIndex(e => e.id === updated.id)
+      if (idx !== -1) experts.value[idx] = updated
+      toast.add({ title: 'Expert modifié', icon: 'i-heroicons-check-circle', color: 'green' })
+    } else {
+      const created = await db.experts.create({
+        name: expertForm.name.trim(),
+        initials: expertForm.initials.trim().toUpperCase(),
+        role: expertForm.role
+      })
+      experts.value.push(created)
+      toast.add({ title: 'Expert ajouté', icon: 'i-heroicons-check-circle', color: 'green' })
+    }
+    showExpertModal.value = false
+  } catch (err) {
+    console.error(err)
+    toast.add({ title: 'Erreur lors de la sauvegarde', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    savingExpert.value = false
+  }
+}
+
+const confirmDeleteExpert = ref<Expert | null>(null)
+
+async function deleteExpert(expert: Expert) {
+  confirmDeleteExpert.value = expert
+}
+
+async function confirmDelete() {
+  if (!confirmDeleteExpert.value) return
+  try {
+    await db.experts.delete(confirmDeleteExpert.value.id)
+    experts.value = experts.value.filter(e => e.id !== confirmDeleteExpert.value!.id)
+    toast.add({ title: 'Expert supprimé', icon: 'i-heroicons-check-circle', color: 'green' })
+  } catch (err) {
+    console.error(err)
+    toast.add({ title: 'Erreur lors de la suppression', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    confirmDeleteExpert.value = null
+  }
+}
+
+// Formulaire settings éditables
+const form = reactive({
+  projectTemplate: '',
+  githubOrg: '',
+  pauseInterval: 4,
+  pauseDuration: 15,
+  manualPauses: [] as ManualPause[]
+})
+
+// Options de durée de pause
+const durationOptions = [
+  { label: '5 min', value: 5 },
+  { label: '10 min', value: 10 },
+  { label: '15 min', value: 15 }
+]
+
+// Pour ajouter une position manuelle
+const newPausePosition = ref<number | null>(null)
 
 onMounted(async () => {
   try {
-    experts.value = await db.experts.getAll()
+    const [expertsData, settingsData] = await Promise.all([
+      db.experts.getAll(),
+      db.settings.getAll()
+    ])
+    experts.value = expertsData
+    settings.value = settingsData
+    form.projectTemplate = settingsData.project_template || ''
+    form.githubOrg = settingsData.github_org || ''
+    form.pauseInterval = parseInt(settingsData.pause_interval || '4', 10)
+    form.pauseDuration = parseInt(settingsData.pause_duration || '15', 10)
+    try {
+      const saved = JSON.parse(settingsData.pause_positions || '[]')
+      // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
+      if (saved.length > 0 && typeof saved[0] === 'number') {
+        form.manualPauses = saved.map((pos: number) => ({ position: pos, duration: form.pauseDuration }))
+      } else {
+        form.manualPauses = saved
+      }
+    } catch {
+      form.manualPauses = []
+    }
   } finally {
     loading.value = false
   }
+})
+
+async function saveSettings() {
+  saving.value = true
+  try {
+    await Promise.all([
+      db.settings.set('project_template', form.projectTemplate),
+      db.settings.set('github_org', form.githubOrg),
+      db.settings.set('pause_interval', String(form.pauseInterval)),
+      db.settings.set('pause_duration', String(form.pauseDuration)),
+      db.settings.set('pause_positions', JSON.stringify(form.manualPauses))
+    ])
+    settings.value.project_template = form.projectTemplate
+    settings.value.github_org = form.githubOrg
+    settings.value.pause_interval = String(form.pauseInterval)
+    settings.value.pause_duration = String(form.pauseDuration)
+    settings.value.pause_positions = JSON.stringify(form.manualPauses)
+    toast.add({ title: 'Paramètres enregistrés', icon: 'i-heroicons-check-circle', color: 'green' })
+  } finally {
+    saving.value = false
+  }
+}
+
+function addPausePosition() {
+  if (newPausePosition.value && newPausePosition.value > 0) {
+    const exists = form.manualPauses.some(p => p.position === newPausePosition.value)
+    if (!exists) {
+      form.manualPauses.push({ position: newPausePosition.value, duration: form.pauseDuration })
+      form.manualPauses.sort((a, b) => a.position - b.position)
+    }
+    newPausePosition.value = null
+  }
+}
+
+function removePausePosition(pause: ManualPause) {
+  form.manualPauses = form.manualPauses.filter(p => p.position !== pause.position)
+}
+
+function updatePauseDuration(pause: ManualPause, duration: number) {
+  pause.duration = duration
+}
+
+// Génère un exemple d'URL pour prévisualisation
+const exampleRepoUrl = computed(() => {
+  if (!form.githubOrg || !form.projectTemplate) return ''
+  return `https://github.com/${form.githubOrg}/${form.projectTemplate}-{username}`
+})
+
+const exampleDeployUrl = computed(() => {
+  if (!form.githubOrg || !form.projectTemplate) return ''
+  return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
 })
 </script>
 
@@ -18,17 +202,28 @@ onMounted(async () => {
   <div class="page">
     <header class="page-header">
       <h1 class="page-title">Paramètres</h1>
-      <p class="page-subtitle mono">Configuration de VuGrade</p>
+      <p class="page-subtitle mono">Configuration de VueGrade</p>
     </header>
 
     <div class="settings-grid">
       <!-- Experts -->
       <section class="settings-section">
-        <h2 class="section-title">
-          <UIcon name="i-heroicons-user-group" />
-          Experts
-        </h2>
-        <p class="section-desc">Les experts participent à la notation orale. Leurs initiales sont utilisées dans les grilles de notation.</p>
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">
+              <UIcon name="i-heroicons-user-group" />
+              Experts
+            </h2>
+            <p class="section-desc">Les experts participent à la notation orale. Leurs initiales sont utilisées dans les grilles de notation.</p>
+          </div>
+          <UButton
+            icon="i-heroicons-plus"
+            size="sm"
+            @click="openAddExpert"
+          >
+            Ajouter
+          </UButton>
+        </div>
 
         <div v-if="loading" class="loading-state">
           <UIcon name="i-heroicons-arrow-path" class="spin" />
@@ -38,32 +233,270 @@ onMounted(async () => {
             <div class="expert-avatar mono">{{ expert.initials }}</div>
             <div class="expert-info">
               <span class="expert-name">{{ expert.name }}</span>
-              <span class="expert-role mono" :class="`role--${expert.role}`">{{ expert.role }}</span>
+              <span class="expert-role mono" :class="`role--${expert.role}`">{{ expert.role === 'teacher' ? 'enseignant' : 'expert' }}</span>
+            </div>
+            <div class="expert-actions">
+              <UButton
+                icon="i-heroicons-pencil"
+                size="xs"
+                variant="ghost"
+                color="gray"
+                @click="openEditExpert(expert)"
+              />
+              <UButton
+                icon="i-heroicons-trash"
+                size="xs"
+                variant="ghost"
+                color="red"
+                @click="deleteExpert(expert)"
+              />
             </div>
           </div>
+          <div v-if="experts.length === 0" class="empty-state">
+            Aucun expert configuré
+          </div>
         </div>
-        <p class="setting-note">
-          <UIcon name="i-heroicons-information-circle" />
-          Les experts sont configurés directement en base Supabase (table <code class="mono">experts</code>).
-        </p>
       </section>
 
-      <!-- GitHub config -->
+      <!-- Modal Expert -->
+      <UModal v-model="showExpertModal">
+        <UCard>
+          <template #header>
+            <div class="modal-header">
+              <h3>{{ editingExpert ? 'Modifier l\'expert' : 'Ajouter un expert' }}</h3>
+            </div>
+          </template>
+
+          <div class="expert-form">
+            <UFormGroup label="Nom complet">
+              <UInput
+                v-model="expertForm.name"
+                placeholder="Jean Dupont"
+                icon="i-heroicons-user"
+              />
+            </UFormGroup>
+            <UFormGroup label="Initiales (3 lettres)">
+              <UInput
+                v-model="expertForm.initials"
+                placeholder="JDP"
+                maxlength="3"
+                class="initials-input"
+              />
+            </UFormGroup>
+            <UFormGroup label="Rôle">
+              <USelectMenu
+                v-model="expertForm.role"
+                :options="roleOptions"
+                value-attribute="value"
+                option-attribute="label"
+              />
+            </UFormGroup>
+          </div>
+
+          <template #footer>
+            <div class="modal-footer">
+              <UButton
+                variant="ghost"
+                color="gray"
+                @click="showExpertModal = false"
+              >
+                Annuler
+              </UButton>
+              <UButton
+                :loading="savingExpert"
+                icon="i-heroicons-check"
+                @click="saveExpert"
+              >
+                {{ editingExpert ? 'Enregistrer' : 'Ajouter' }}
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
+
+      <!-- Modal confirmation suppression -->
+      <UModal v-model="confirmDeleteExpert" :model-value="!!confirmDeleteExpert" @update:model-value="confirmDeleteExpert = null">
+        <UCard>
+          <template #header>
+            <div class="modal-header modal-header--danger">
+              <UIcon name="i-heroicons-exclamation-triangle" />
+              <h3>Supprimer l'expert</h3>
+            </div>
+          </template>
+
+          <p>
+            Voulez-vous vraiment supprimer <strong>{{ confirmDeleteExpert?.name }}</strong> ({{ confirmDeleteExpert?.initials }}) ?
+          </p>
+          <p class="warning-text">
+            Cette action supprimera aussi toutes ses notes attribuées.
+          </p>
+
+          <template #footer>
+            <div class="modal-footer">
+              <UButton
+                variant="ghost"
+                color="gray"
+                @click="confirmDeleteExpert = null"
+              >
+                Annuler
+              </UButton>
+              <UButton
+                color="red"
+                icon="i-heroicons-trash"
+                @click="confirmDelete"
+              >
+                Supprimer
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
+
+      <!-- Projet config -->
       <section class="settings-section">
         <h2 class="section-title">
           <UIcon name="i-simple-icons-github" />
-          GitHub
+          Configuration projet
         </h2>
-        <p class="section-desc">Configuration de l'intégration GitHub pour le Gitflow.</p>
-        <div class="config-item">
-          <span class="config-key mono">GITHUB_ORG</span>
-          <span class="config-val mono">{{ $config.public.githubOrg || '(non configuré)' }}</span>
+        <p class="section-desc">Paramètres pour la génération automatique des URLs des repos élèves.</p>
+
+        <div class="form-grid">
+          <UFormGroup label="Organisation GitHub">
+            <UInput
+              v-model="form.githubOrg"
+              placeholder="divtec-cejef"
+              icon="i-heroicons-building-office"
+            />
+          </UFormGroup>
+          <UFormGroup label="Template de projet">
+            <UInput
+              v-model="form.projectTemplate"
+              placeholder="m294-projet-vuetify"
+              icon="i-heroicons-document-duplicate"
+            />
+          </UFormGroup>
         </div>
-        <p class="setting-note">
-          <UIcon name="i-heroicons-information-circle" />
-          Configurer via les variables d'environnement (<code class="mono">.env</code>).
-          Le token GitHub reste côté serveur.
+
+        <div v-if="exampleRepoUrl" class="url-preview">
+          <div class="preview-item">
+            <span class="preview-label">Repo</span>
+            <code class="mono">{{ exampleRepoUrl }}</code>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">Deploy</span>
+            <code class="mono">{{ exampleDeployUrl }}</code>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <UButton
+            @click="saveSettings"
+            :loading="saving"
+            icon="i-heroicons-check"
+            size="sm"
+          >
+            Enregistrer
+          </UButton>
+        </div>
+      </section>
+
+      <!-- Pauses délibération -->
+      <section class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-pause" />
+          Pauses de délibération
+        </h2>
+        <p class="section-desc">
+          Configurez les pauses de délibération pendant les passages oraux.
         </p>
+
+        <div class="pause-config">
+          <!-- Durée des pauses automatiques -->
+          <div class="pause-duration">
+            <span class="pause-label">Durée des pauses auto :</span>
+            <div class="duration-buttons">
+              <button
+                v-for="opt in durationOptions"
+                :key="opt.value"
+                class="duration-btn"
+                :class="{ 'duration-btn--active': form.pauseDuration === opt.value }"
+                @click="form.pauseDuration = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Pause automatique -->
+          <div class="pause-auto">
+            <span class="pause-label">Pause automatique tous les</span>
+            <UInput
+              v-model.number="form.pauseInterval"
+              type="number"
+              :min="0"
+              :max="20"
+              class="pause-input"
+              placeholder="4"
+            />
+            <span class="pause-label">élèves</span>
+            <span class="pause-hint mono">(0 = désactivé)</span>
+          </div>
+
+          <!-- Pauses manuelles -->
+          <div class="pause-manual">
+            <span class="pause-label">Pauses manuelles (après le nème élève) :</span>
+            <div class="manual-positions">
+              <div v-for="pause in form.manualPauses" :key="pause.position" class="position-tag">
+                <span class="mono position-num">{{ pause.position }}</span>
+                <div class="position-duration">
+                  <button
+                    v-for="opt in durationOptions"
+                    :key="opt.value"
+                    class="mini-duration-btn"
+                    :class="{ 'mini-duration-btn--active': pause.duration === opt.value }"
+                    @click="updatePauseDuration(pause, opt.value)"
+                  >
+                    {{ opt.value }}'
+                  </button>
+                </div>
+                <button class="tag-remove" @click="removePausePosition(pause)">
+                  <UIcon name="i-heroicons-x-mark" />
+                </button>
+              </div>
+              <div class="add-position">
+                <UInput
+                  v-model.number="newPausePosition"
+                  type="number"
+                  :min="1"
+                  :max="50"
+                  placeholder="N°"
+                  class="position-input"
+                  @keyup.enter="addPausePosition"
+                />
+                <UButton
+                  icon="i-heroicons-plus"
+                  size="xs"
+                  variant="soft"
+                  @click="addPausePosition"
+                  :disabled="!newPausePosition"
+                >
+                  Ajouter
+                </UButton>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <UButton
+            @click="saveSettings"
+            :loading="saving"
+            icon="i-heroicons-check"
+            size="sm"
+          >
+            Enregistrer
+          </UButton>
+        </div>
       </section>
 
       <!-- Stack info -->
@@ -120,6 +553,13 @@ onMounted(async () => {
   display: flex; flex-direction: column; gap: 1rem;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .section-title {
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 1rem; font-weight: 600; margin: 0;
@@ -157,6 +597,65 @@ onMounted(async () => {
   color: var(--c-info);
 }
 
+.expert-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.expert-row:hover .expert-actions {
+  opacity: 1;
+}
+
+.empty-state {
+  padding: 1rem;
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: 0.85rem;
+}
+
+/* Modal */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.modal-header--danger {
+  color: var(--c-error);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.expert-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.initials-input {
+  max-width: 100px;
+  text-transform: uppercase;
+}
+
+.warning-text {
+  font-size: 0.85rem;
+  color: var(--c-text-muted);
+  margin-top: 0.5rem;
+}
+
 /* GitHub */
 .config-item {
   display: flex; align-items: center; gap: 1rem;
@@ -186,4 +685,193 @@ onMounted(async () => {
 .loading-state { display: flex; justify-content: center; padding: 1rem; color: var(--c-text-muted); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }
+
+/* Form */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.url-preview {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.preview-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.preview-label {
+  color: var(--c-text-muted);
+  min-width: 50px;
+}
+
+.preview-item code {
+  color: var(--c-nuxt);
+  word-break: break-all;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Pause config */
+.pause-config {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pause-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pause-label {
+  font-size: 0.85rem;
+  color: var(--c-text-soft);
+}
+
+.pause-input {
+  width: 70px;
+}
+
+.pause-hint {
+  font-size: 0.75rem;
+  color: var(--c-text-muted);
+}
+
+.pause-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.position-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-warn) 30%, transparent);
+  border-radius: 6px;
+  color: var(--c-warn);
+  font-size: 0.8rem;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--c-warn);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tag-remove:hover {
+  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+}
+
+.add-position {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.position-input {
+  width: 60px;
+}
+
+.position-num {
+  min-width: 20px;
+  text-align: center;
+}
+
+.position-duration {
+  display: flex;
+  gap: 1px;
+  margin-left: 4px;
+}
+
+.mini-duration-btn {
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--c-warn);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: all 0.12s;
+}
+
+.mini-duration-btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+}
+
+.mini-duration-btn--active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-warn) 25%, transparent);
+}
+
+/* Duration buttons */
+.pause-duration {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.duration-buttons {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.duration-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--c-border);
+  background: var(--c-bg);
+  color: var(--c-text-soft);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.duration-btn:hover {
+  border-color: var(--c-nuxt);
+  color: var(--c-nuxt);
+}
+
+.duration-btn--active {
+  background: color-mix(in srgb, var(--c-nuxt) 12%, transparent);
+  border-color: var(--c-nuxt);
+  color: var(--c-nuxt);
+}
 </style>

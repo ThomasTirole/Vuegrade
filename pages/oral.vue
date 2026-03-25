@@ -1,8 +1,44 @@
 <script setup lang="ts">
+import type { Student } from '~/types'
+
+interface ManualPause {
+  position: number
+  duration: number
+}
+
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const db = useDB()
 
-onMounted(() => studentsStore.fetchAll())
+// Settings pour les pauses
+const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
+const pauseDuration = ref(15) // Durée par défaut des pauses auto en minutes
+const manualPauses = ref<ManualPause[]>([]) // Pauses manuelles avec durée individuelle
+
+// Menu d'ajout de pause
+const showPauseMenu = ref<number | null>(null) // Position où afficher le menu
+const expandedDuration = ref<number | null>(null) // Position de la pause dont on édite la durée
+const durationOptions = [5, 10, 15]
+
+onMounted(async () => {
+  studentsStore.fetchAll()
+
+  // Charger les settings de pause
+  const settings = await db.settings.getAll()
+  pauseInterval.value = parseInt(settings.pause_interval || '4', 10)
+  pauseDuration.value = parseInt(settings.pause_duration || '15', 10)
+  try {
+    const saved = JSON.parse(settings.pause_positions || '[]')
+    // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
+    if (saved.length > 0 && typeof saved[0] === 'number') {
+      manualPauses.value = saved.map((pos: number) => ({ position: pos, duration: pauseDuration.value }))
+    } else {
+      manualPauses.value = saved
+    }
+  } catch {
+    manualPauses.value = []
+  }
+})
 
 // Trier par ordre de passage
 const sortedStudents = computed(() =>
@@ -12,6 +48,91 @@ const sortedStudents = computed(() =>
     return a.passageOrder - b.passageOrder
   })
 )
+
+// Calculer les positions de pause (auto + manuelles, sans doublons)
+const allPausePositions = computed(() => {
+  const positions = new Set<number>()
+
+  // Pauses automatiques (après chaque X élèves)
+  if (pauseInterval.value > 0) {
+    const total = sortedStudents.value.length
+    for (let i = pauseInterval.value; i < total; i += pauseInterval.value) {
+      positions.add(i)
+    }
+  }
+
+  // Pauses manuelles
+  manualPauses.value.forEach(p => {
+    if (p.position > 0 && p.position < sortedStudents.value.length) {
+      positions.add(p.position)
+    }
+  })
+
+  return Array.from(positions).sort((a, b) => a - b)
+})
+
+// Vérifier si une pause doit être affichée après l'élève à l'index donné
+function hasPauseAfter(index: number): boolean {
+  return allPausePositions.value.includes(index + 1)
+}
+
+// Récupérer la pause manuelle à une position donnée
+function getManualPause(position: number): ManualPause | undefined {
+  return manualPauses.value.find(p => p.position === position)
+}
+
+// Vérifier si une pause manuelle existe à cette position
+function isManualPause(position: number): boolean {
+  return manualPauses.value.some(p => p.position === position)
+}
+
+// Obtenir la durée d'une pause (manuelle ou auto)
+function getPauseDuration(position: number): number {
+  const manual = getManualPause(position)
+  return manual ? manual.duration : pauseDuration.value
+}
+
+// Ouvrir le menu d'ajout de pause
+function openPauseMenu(index: number) {
+  showPauseMenu.value = index
+}
+
+// Fermer le menu
+function closePauseMenu() {
+  showPauseMenu.value = null
+}
+
+// Ajouter une pause manuelle avec durée
+async function addPauseWithDuration(index: number, duration: number) {
+  const position = index + 1
+  if (!isManualPause(position)) {
+    manualPauses.value.push({ position, duration })
+    manualPauses.value.sort((a, b) => a.position - b.position)
+    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+  }
+  closePauseMenu()
+}
+
+// Ouvrir/fermer le sélecteur de durée sur une pause existante
+function toggleDurationPicker(position: number) {
+  expandedDuration.value = expandedDuration.value === position ? null : position
+}
+
+// Modifier la durée d'une pause manuelle
+async function updatePauseDuration(position: number, duration: number) {
+  const pause = getManualPause(position)
+  if (pause) {
+    pause.duration = duration
+    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+  }
+  expandedDuration.value = null // Fermer après sélection
+}
+
+// Supprimer une pause manuelle
+async function removePause(position: number) {
+  manualPauses.value = manualPauses.value.filter(p => p.position !== position)
+  await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+}
 
 const currentStudent = ref<string | null>(null)
 </script>
@@ -36,32 +157,91 @@ const currentStudent = ref<string | null>(null)
         </div>
 
         <div v-else class="schedule-items">
-          <div
-            v-for="(student, idx) in sortedStudents"
-            :key="student.id"
-            class="schedule-item"
-            :class="{ 'schedule-item--active': currentStudent === student.id }"
-            @click="currentStudent = student.id"
-          >
-            <span class="passage-num mono">{{ idx + 1 }}</span>
-            <div class="passage-info">
-              <span class="passage-name">{{ student.name }}</span>
-              <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
-            </div>
-            <NuxtLink
-              :to="`/students/${student.id}`"
-              class="go-btn"
-              @click.stop
-              title="Ouvrir la fiche"
-            >
-              <UIcon name="i-heroicons-arrow-right" />
-            </NuxtLink>
-          </div>
+          <template v-for="(student, idx) in sortedStudents" :key="student.id">
+            <div class="schedule-item-wrapper">
+              <div
+                class="schedule-item"
+                :class="{ 'schedule-item--active': currentStudent === student.id }"
+                @click="currentStudent = student.id"
+              >
+                <span class="passage-num mono">{{ idx + 1 }}</span>
+                <div class="passage-info">
+                  <span class="passage-name">{{ student.name }}</span>
+                  <span class="passage-time mono" v-if="student.passageTime">{{ student.passageTime }}</span>
+                </div>
+                <NuxtLink
+                  :to="`/students/${student.id}`"
+                  class="go-btn"
+                  @click.stop
+                  title="Ouvrir la fiche"
+                >
+                  <UIcon name="i-heroicons-arrow-right" />
+                </NuxtLink>
+              </div>
 
-          <!-- Pause markers (configurable) -->
-          <div class="pause-marker">
-            <span class="mono">⏸ Pause 15' — délibération</span>
-          </div>
+              <!-- Bouton ajouter pause (visible au hover si pas déjà de pause) -->
+              <div
+                v-if="!hasPauseAfter(idx) && idx < sortedStudents.length - 1"
+                class="add-pause-zone"
+              >
+                <button
+                  class="add-pause-btn"
+                  @click="openPauseMenu(idx)"
+                  title="Ajouter une pause ici"
+                >
+                  <UIcon name="i-heroicons-plus" />
+                </button>
+                <!-- Menu de sélection durée -->
+                <div v-if="showPauseMenu === idx" class="pause-menu" @mouseleave="closePauseMenu">
+                  <button
+                    v-for="d in durationOptions"
+                    :key="d"
+                    class="pause-menu-item"
+                    @click="addPauseWithDuration(idx, d)"
+                  >
+                    {{ d }}'
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pause marker après cet élève si configuré -->
+            <div v-if="hasPauseAfter(idx)" class="pause-marker">
+              <UIcon name="i-heroicons-pause" />
+              <!-- Durée cliquable pour les pauses manuelles -->
+              <div v-if="isManualPause(idx + 1)" class="pause-duration-picker">
+                <!-- Durée sélectionnée (toujours visible, cliquable) -->
+                <button
+                  class="duration-selected"
+                  @click="toggleDurationPicker(idx + 1)"
+                  title="Modifier la durée"
+                >
+                  {{ getPauseDuration(idx + 1) }}'
+                </button>
+                <!-- Options qui se déploient -->
+                <template v-if="expandedDuration === idx + 1">
+                  <button
+                    v-for="d in durationOptions.filter(d => d !== getPauseDuration(idx + 1))"
+                    :key="d"
+                    class="duration-option"
+                    @click="updatePauseDuration(idx + 1, d)"
+                  >
+                    {{ d }}'
+                  </button>
+                </template>
+              </div>
+              <span v-else class="mono">{{ getPauseDuration(idx + 1) }}'</span>
+              <span class="pause-label-text">— délibération</span>
+              <button
+                v-if="isManualPause(idx + 1)"
+                class="remove-pause-btn"
+                @click="removePause(idx + 1)"
+                title="Supprimer cette pause"
+              >
+                <UIcon name="i-heroicons-x-mark" />
+              </button>
+            </div>
+          </template>
         </div>
       </aside>
 
@@ -95,7 +275,7 @@ const currentStudent = ref<string | null>(null)
             </div>
           </div>
 
-          <OralPanel :student-id="currentStudent" />
+          <OralPanel :key="currentStudent" :student-id="currentStudent" />
         </template>
       </main>
     </div>
@@ -168,11 +348,166 @@ const currentStudent = ref<string | null>(null)
 }
 .go-btn:hover { background: var(--c-bg-hover); color: var(--c-nuxt); }
 
+.schedule-item-wrapper {
+  position: relative;
+}
+
+.add-pause-zone {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.add-pause-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-bg-card);
+  border: 1px dashed var(--c-border);
+  color: var(--c-text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.schedule-item-wrapper:hover .add-pause-btn {
+  opacity: 1;
+}
+
+.add-pause-btn:hover {
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+  border-color: var(--c-warn);
+  color: var(--c-warn);
+}
+
+.pause-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  display: flex;
+  gap: 2px;
+  background: var(--c-bg-card);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 3px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.pause-menu-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-soft);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.pause-menu-item:hover {
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+  color: var(--c-warn);
+}
+
 .pause-marker {
-  padding: 0.6rem 1rem;
-  color: var(--c-text-muted); font-size: 0.7rem;
-  border-top: 1px dashed var(--c-border);
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  color: var(--c-warn);
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--c-warn) 8%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--c-warn) 30%, transparent);
+  position: relative;
+}
+
+.remove-pause-btn {
+  position: absolute;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--c-warn);
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.pause-marker:hover .remove-pause-btn {
+  opacity: 1;
+}
+
+.remove-pause-btn:hover {
+  background: color-mix(in srgb, var(--c-warn) 20%, transparent);
+}
+
+.pause-duration-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.duration-selected {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--c-warn) 40%, transparent);
+  background: color-mix(in srgb, var(--c-warn) 15%, transparent);
+  color: var(--c-warn);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.duration-selected:hover {
+  background: color-mix(in srgb, var(--c-warn) 25%, transparent);
+  border-color: var(--c-warn);
+}
+
+.duration-option {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px dashed var(--c-border);
+  background: var(--c-bg-card);
+  color: var(--c-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  animation: slideIn 0.15s ease;
+}
+
+.duration-option:hover {
+  border-color: var(--c-warn);
+  color: var(--c-warn);
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.pause-label-text {
+  font-family: var(--font-mono);
 }
 
 /* Active panel */

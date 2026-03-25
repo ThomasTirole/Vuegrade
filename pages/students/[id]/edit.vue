@@ -1,18 +1,24 @@
 <!-- pages/students/[id]/edit.vue — Formulaire édition élève -->
 <script setup lang="ts">
-import { extractRepoName, inferDeployUrl } from '~/types'
-
 const route = useRoute()
 const router = useRouter()
 const db = useDB()
 const studentsStore = useStudentsStore()
+const toast = useToast()
 
 const studentId = route.params.id as string
 
-const pageLoading = ref(true)
 const submitLoading = ref(false)
 const error = ref<string | null>(null)
-const notFound = ref(false)
+
+// Chargement des données côté client uniquement
+const { data: student, status, error: fetchError } = useLazyAsyncData(
+  `student-edit-${studentId}`,
+  () => db.students.getById(studentId)
+)
+
+const pageLoading = computed(() => status.value === 'pending')
+const notFound = computed(() => status.value === 'success' && !student.value)
 
 const form = reactive({
   name: '',
@@ -27,43 +33,28 @@ const form = reactive({
   passageTime: '',
 })
 
-onMounted(async () => {
-  try {
-    const student = await db.students.getById(studentId)
-    if (!student) {
-      notFound.value = true
-      return
-    }
-    // Pré-remplir le formulaire
-    form.name = student.name
-    form.githubUsername = student.githubUsername
-    form.repoUrl = student.repoUrl
-    form.deployUrl = student.deployUrl ?? ''
-    form.projectDescription = student.projectDescription
-    form.apiName = student.apiName
-    form.apiUrl = student.apiUrl ?? ''
-    form.teacherApiKey = student.teacherApiKey ?? ''
-    form.passageOrder = student.passageOrder ?? null
-    form.passageTime = student.passageTime ?? ''
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    pageLoading.value = false
+// Pré-remplir le formulaire quand les données sont chargées
+watchEffect(() => {
+  if (student.value) {
+    form.name = student.value.name
+    form.githubUsername = student.value.githubUsername
+    form.repoUrl = student.value.repoUrl
+    form.deployUrl = student.value.deployUrl ?? ''
+    form.projectDescription = student.value.projectDescription ?? ''
+    form.apiName = student.value.apiName ?? ''
+    form.apiUrl = student.value.apiUrl ?? ''
+    form.teacherApiKey = student.value.teacherApiKey ?? ''
+    form.passageOrder = student.value.passageOrder ?? null
+    form.passageTime = student.value.passageTime ?? ''
   }
 })
 
-// Calcul automatique de l'URL de déploiement
-watch(
-  () => [form.githubUsername, form.repoUrl],
-  ([username, repoUrl]) => {
-    if (username && repoUrl) {
-      const repoName = extractRepoName(repoUrl as string)
-      if (repoName) {
-        form.deployUrl = inferDeployUrl(username as string, repoName)
-      }
-    }
+// Afficher l'erreur de fetch si présente
+watchEffect(() => {
+  if (fetchError.value) {
+    error.value = fetchError.value.message
   }
-)
+})
 
 const isValid = computed(() => {
   return (
@@ -93,6 +84,11 @@ async function handleSubmit() {
       teacherApiKey: form.teacherApiKey.trim() || undefined,
       passageOrder: form.passageOrder ?? undefined,
       passageTime: form.passageTime.trim() || undefined,
+    })
+    toast.add({
+      title: 'Modifications enregistrées',
+      icon: 'i-heroicons-check-circle',
+      color: 'green',
     })
     router.push(`/students/${studentId}`)
   } catch (e: any) {
@@ -135,10 +131,10 @@ async function handleSubmit() {
         <h2 class="section-title">Identité</h2>
         <div class="form-grid">
           <UFormGroup label="Nom complet" required>
-            <UInput v-model="form.name" placeholder="Ex: Bélet Aedan" icon="i-heroicons-user" />
+            <UInput v-model="form.name" placeholder="Ex: Doe John" icon="i-heroicons-user" />
           </UFormGroup>
           <UFormGroup label="Username GitHub" required>
-            <UInput v-model="form.githubUsername" placeholder="Ex: YuriAyato144" icon="i-simple-icons-github" />
+            <UInput v-model="form.githubUsername" placeholder="Ex: johndoe" icon="i-simple-icons-github" />
           </UFormGroup>
         </div>
       </div>
@@ -153,7 +149,7 @@ async function handleSubmit() {
           <UInput v-model="form.deployUrl" placeholder="https://username.github.io/repo/" icon="i-heroicons-globe-alt" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
-          <UTextarea v-model="form.projectDescription" placeholder="Ex: Affichage des divinités de la mythologie grecque" :rows="3" />
+          <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
         </UFormGroup>
       </div>
 
@@ -162,7 +158,7 @@ async function handleSubmit() {
         <h2 class="section-title">API</h2>
         <div class="form-grid">
           <UFormGroup label="Nom de l'API" required>
-            <UInput v-model="form.apiName" placeholder="Ex: GreekMyth API" icon="i-heroicons-bolt" />
+            <UInput v-model="form.apiName" placeholder="Ex: TodoList API" icon="i-heroicons-bolt" />
           </UFormGroup>
           <UFormGroup label="URL documentation API">
             <UInput v-model="form.apiUrl" placeholder="https://api.example.com/docs" icon="i-heroicons-document-text" />

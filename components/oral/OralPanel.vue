@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { calculateFinalScore, SCORE_LABELS } from '~/types'
-import type { Question, OralSession, Expert } from '~/types'
+import type { Question, OralSession, Expert, OralGrade } from '~/types'
 
 const props = defineProps<{ studentId: string }>()
 
@@ -17,16 +17,28 @@ const currentExpertId = ref<string | null>(
   typeof window !== 'undefined' ? localStorage.getItem('vugrade_expert') : null
 )
 
+// Ref pour les grades (pour le realtime)
+const grades = ref<OralGrade[]>([])
+
+// Ref réactive pour studentId (pour le realtime)
+const studentIdRef = toRef(props, 'studentId')
+
+// Synchronisation realtime des notes et sessions
+useRealtimeGrades(studentIdRef, session, grades)
+
 onMounted(async () => {
   try {
     const [qs, ex, sess] = await Promise.all([
-      db.questions.getForStudent(props.studentId),
+      // Utilise getAssignedForStudent pour n'avoir que les questions attribuées
+      db.questions.getAssignedForStudent(props.studentId),
       db.experts.getAll(),
       db.oral.getSessionByStudent(props.studentId),
     ])
     questions.value = qs
     experts.value = ex
     session.value = sess
+    // Initialise les grades depuis la session
+    grades.value = sess?.grades ?? []
   } finally {
     loading.value = false
   }
@@ -40,8 +52,7 @@ function selectExpert(id: string) {
 
 // Score actuel pour une question / expert
 function getScore(questionId: string, expertId: string): number | null {
-  if (!session.value) return null
-  const grade = session.value.grades.find(
+  const grade = grades.value.find(
     g => g.questionId === questionId && g.expertId === expertId
   )
   return grade?.score ?? null
@@ -49,7 +60,6 @@ function getScore(questionId: string, expertId: string): number | null {
 
 // Note finale pour une question (moyenne des experts)
 function getQuestionFinal(questionId: string): number | null {
-  if (!session.value) return null
   const expertScores = experts.value
     .map(e => getScore(questionId, e.id))
     .filter((s): s is number => s !== null)
@@ -72,6 +82,24 @@ async function startSession() {
   session.value.status = 'in_progress'
 }
 
+// Termine la session
+async function completeSession() {
+  if (!session.value) return
+  await db.oral.updateSessionStatus(session.value.id, 'completed')
+  session.value.status = 'completed'
+  session.value.completedAt = new Date().toISOString()
+}
+
+// Rouvre la session (si besoin de modifier)
+async function reopenSession() {
+  if (!session.value) return
+  await db.oral.updateSessionStatus(session.value.id, 'in_progress')
+  session.value.status = 'in_progress'
+  session.value.completedAt = undefined
+}
+
+const isCompleted = computed(() => session.value?.status === 'completed')
+
 // Sauvegarde une note
 async function saveScore(questionId: string, score: number) {
   if (!session.value || !currentExpertId.value) return
@@ -84,14 +112,14 @@ async function saveScore(questionId: string, score: number) {
       expertId: currentExpertId.value,
       score,
     })
-    // Mise à jour du score local dans session.value.grades
-    const existingIdx = session.value.grades.findIndex(
+    // Mise à jour locale immédiate (le realtime mettra aussi à jour, mais c'est plus réactif)
+    const existingIdx = grades.value.findIndex(
       g => g.questionId === questionId && g.expertId === currentExpertId.value
     )
     if (existingIdx !== -1) {
-      session.value.grades[existingIdx] = newGrade
+      grades.value[existingIdx] = newGrade
     } else {
-      session.value.grades.push(newGrade)
+      grades.value.push(newGrade)
     }
   } finally {
     saving.value = null
@@ -100,6 +128,14 @@ async function saveScore(questionId: string, score: number) {
 
 const theoreticalQs = computed(() => questions.value.filter(q => q.type === 'theoretical'))
 const practicalQs = computed(() => questions.value.filter(q => q.type === 'practical'))
+
+// Génère le ref à afficher (T-X stocké pour théoriques, P-X calculé pour pratiques)
+function getDisplayRef(question: Question, index: number): string {
+  if (question.type === 'theoretical') {
+    return question.ref || `T-${index + 1}`
+  }
+  return `P-${index + 1}`
+}
 </script>
 
 <template>
@@ -122,6 +158,24 @@ const practicalQs = computed(() => questions.value.filter(q => q.type === 'pract
       </div>
     </div>
 
+    <!-- Statut de la session -->
+    <div v-if="session && isCompleted" class="session-status session-status--completed">
+      <UIcon name="i-heroicons-check-circle" />
+      <span>Oral terminé</span>
+      <span class="status-date mono" v-if="session.completedAt">
+        {{ new Date(session.completedAt).toLocaleDateString('fr-CH') }}
+      </span>
+      <UButton
+        size="xs"
+        variant="ghost"
+        color="gray"
+        icon="i-heroicons-arrow-path"
+        @click="reopenSession"
+      >
+        Rouvrir
+      </UButton>
+    </div>
+
     <!-- Score global -->
     <div class="score-summary" v-if="globalScore !== null">
       <span class="score-label">Note globale</span>
@@ -129,6 +183,17 @@ const practicalQs = computed(() => questions.value.filter(q => q.type === 'pract
         {{ globalScore.toFixed(1) }}
       </span>
       <span class="score-max">/ 6</span>
+      <UButton
+        v-if="session && !isCompleted"
+        size="xs"
+        variant="soft"
+        color="green"
+        icon="i-heroicons-check"
+        class="ml-auto"
+        @click="completeSession"
+      >
+        Terminer l'oral
+      </UButton>
     </div>
 
     <!-- Pas de session -->
@@ -147,11 +212,13 @@ const practicalQs = computed(() => questions.value.filter(q => q.type === 'pract
           Questions théoriques
         </h3>
         <OralQuestionRow
-          v-for="q in theoreticalQs"
+          v-for="(q, idx) in theoreticalQs"
           :key="q.id"
           :question="q"
+          :display-ref="getDisplayRef(q, idx)"
           :experts="experts"
           :session="session"
+          :grades="grades"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -165,11 +232,13 @@ const practicalQs = computed(() => questions.value.filter(q => q.type === 'pract
           Questions pratiques
         </h3>
         <OralQuestionRow
-          v-for="q in practicalQs"
+          v-for="(q, idx) in practicalQs"
           :key="q.id"
           :question="q"
+          :display-ref="getDisplayRef(q, idx)"
           :experts="experts"
           :session="session"
+          :grades="grades"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -317,4 +386,30 @@ const practicalQs = computed(() => questions.value.filter(q => q.type === 'pract
   border: 1px dashed var(--c-border);
   border-radius: 12px;
 }
+
+/* Session status */
+.session-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.session-status--completed {
+  background: color-mix(in srgb, var(--c-vue) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-vue) 30%, transparent);
+  color: var(--c-vue);
+}
+
+.status-date {
+  font-size: 0.75rem;
+  color: var(--c-text-muted);
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+.ml-auto { margin-left: auto; }
 </style>

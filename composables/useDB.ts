@@ -107,6 +107,94 @@ export const useDB = () => {
     async delete(id: string): Promise<void> {
       const { error } = await supabase.from('questions').delete().eq('id', id)
       if (error) throw error
+    },
+
+    /** Récupère les questions pratiques spécifiques à un élève */
+    async getPracticalForStudent(studentId: string): Promise<Question[]> {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('type', 'practical')
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data.map(mapQuestion)
+    },
+
+    /** Récupère uniquement les questions théoriques du pool (sans student_id) */
+    async getTheoreticalPool(): Promise<Question[]> {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .is('student_id', null)
+        .eq('type', 'theoretical')
+        .order('ref', { ascending: true })
+      if (error) throw error
+      return data.map(mapQuestion)
+    },
+
+    /** Calcule le prochain numéro T-X disponible pour une question théorique */
+    async getNextTheoreticalRef(): Promise<number> {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('ref')
+        .is('student_id', null)
+        .eq('type', 'theoretical')
+        .not('ref', 'is', null)
+        .not('ref', 'eq', '')
+      if (error) throw error
+
+      // Extraire les numéros existants (T-1, T-2, etc.)
+      const numbers = data
+        .map(q => {
+          const match = q.ref?.match(/^T-(\d+)$/)
+          return match ? parseInt(match[1], 10) : 0
+        })
+        .filter(n => n > 0)
+
+      // Retourner le max + 1, ou 1 si aucune question
+      return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
+    },
+
+    /** Récupère les questions attribuées à un élève pour l'oral :
+     *  - Théoriques via student_questions (avec leur ref T-X original)
+     *  - Pratiques directement liées (student_id = élève)
+     */
+    async getAssignedForStudent(studentId: string): Promise<Question[]> {
+      // 1. Récupérer les IDs des questions théoriques attribuées
+      const { data: assignedData, error: assignedError } = await supabase
+        .from('student_questions')
+        .select('question_id')
+        .eq('student_id', studentId)
+
+      if (assignedError) throw assignedError
+
+      const assignedIds = assignedData.map(a => a.question_id)
+
+      // 2. Récupérer les questions pratiques de l'élève
+      const { data: practicalData, error: practicalError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('type', 'practical')
+
+      if (practicalError) throw practicalError
+
+      // 3. Récupérer les questions théoriques attribuées
+      let theoreticalQuestions: Question[] = []
+      if (assignedIds.length > 0) {
+        const { data: theoreticalData, error: theoreticalError } = await supabase
+          .from('questions')
+          .select('*')
+          .in('id', assignedIds)
+
+        if (theoreticalError) throw theoreticalError
+        theoreticalQuestions = theoreticalData.map(mapQuestion)
+      }
+
+      // 4. Combiner et retourner
+      const practicalQuestions = practicalData.map(mapQuestion)
+      return [...theoreticalQuestions, ...practicalQuestions]
     }
   }
 
@@ -176,22 +264,155 @@ export const useDB = () => {
   }
 
   // ----------------------------------------------------------
+  // STUDENT QUESTIONS (liaison élève <-> questions théoriques du pool)
+  // ----------------------------------------------------------
+  const studentQuestions = {
+    /** Récupère les questions théoriques attribuées à un élève (avec position) */
+    async getForStudent(studentId: string): Promise<{ questionId: string; position: number }[]> {
+      const { data, error } = await supabase
+        .from('student_questions')
+        .select('question_id, position')
+        .eq('student_id', studentId)
+        .order('position', { ascending: true })
+      if (error) throw error
+      return data.map(d => ({ questionId: d.question_id, position: d.position }))
+    },
+
+    /** Attribue une question du pool à un élève */
+    async assign(studentId: string, questionId: string, position: number): Promise<void> {
+      const { error } = await supabase
+        .from('student_questions')
+        .insert({ student_id: studentId, question_id: questionId, position })
+      if (error) throw error
+    },
+
+    /** Retire une question attribuée à un élève */
+    async unassign(studentId: string, questionId: string): Promise<void> {
+      const { error } = await supabase
+        .from('student_questions')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('question_id', questionId)
+      if (error) throw error
+    },
+
+    /** Met à jour la position d'une question attribuée */
+    async updatePosition(studentId: string, questionId: string, position: number): Promise<void> {
+      const { error } = await supabase
+        .from('student_questions')
+        .update({ position })
+        .eq('student_id', studentId)
+        .eq('question_id', questionId)
+      if (error) throw error
+    },
+
+    /** Réordonne toutes les questions d'un élève */
+    async reorder(studentId: string, questionIds: string[]): Promise<void> {
+      // Supprime puis réinsère dans le bon ordre
+      const { error: deleteError } = await supabase
+        .from('student_questions')
+        .delete()
+        .eq('student_id', studentId)
+      if (deleteError) throw deleteError
+
+      if (questionIds.length > 0) {
+        const inserts = questionIds.map((qId, idx) => ({
+          student_id: studentId,
+          question_id: qId,
+          position: idx + 1
+        }))
+        const { error: insertError } = await supabase
+          .from('student_questions')
+          .insert(inserts)
+        if (insertError) throw insertError
+      }
+    }
+  }
+
+  // ----------------------------------------------------------
   // EXPERTS
   // ----------------------------------------------------------
   const experts = {
     async getAll(): Promise<Expert[]> {
       const { data, error } = await supabase.from('experts').select('*').order('role')
       if (error) throw error
-      return data.map(e => ({
-        id: e.id,
-        name: e.name,
-        initials: e.initials,
-        role: e.role as Expert['role'],
-      }))
+      return data.map(mapExpert)
+    },
+
+    async getById(id: string): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async create(payload: Omit<Expert, 'id'>): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .insert({
+          name: payload.name,
+          initials: payload.initials,
+          role: payload.role
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async update(id: string, payload: Partial<Omit<Expert, 'id'>>): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .update({
+          ...(payload.name && { name: payload.name }),
+          ...(payload.initials && { initials: payload.initials }),
+          ...(payload.role && { role: payload.role })
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase.from('experts').delete().eq('id', id)
+      if (error) throw error
     }
   }
 
-  return { students, questions, oral, experts }
+  // ----------------------------------------------------------
+  // SETTINGS
+  // ----------------------------------------------------------
+  const settings = {
+    async getAll(): Promise<Record<string, string>> {
+      const { data, error } = await supabase.from('settings').select('key, value')
+      if (error) throw error
+      return Object.fromEntries(data.map(s => [s.key, s.value]))
+    },
+
+    async get(key: string): Promise<string | null> {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle()
+      if (error) throw error
+      return data?.value ?? null
+    },
+
+    async set(key: string, value: string): Promise<void> {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key, value }, { onConflict: 'key' })
+      if (error) throw error
+    }
+  }
+
+  return { students, questions, studentQuestions, oral, experts, settings }
 }
 
 // ----------------------------------------------------------
@@ -261,6 +482,15 @@ function mapGrade(d: Record<string, unknown>): OralGrade {
     comment: d.comment as string | undefined,
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
+  }
+}
+
+function mapExpert(d: Record<string, unknown>): Expert {
+  return {
+    id: d.id as string,
+    name: d.name as string,
+    initials: d.initials as string,
+    role: d.role as Expert['role'],
   }
 }
 

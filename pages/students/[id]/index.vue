@@ -39,10 +39,37 @@ watch(activeTab, (tab) => {
 })
 
 const tabs = [
-  { key: 'project',  label: 'Projet',      icon: 'i-heroicons-cube' },
-  { key: 'oral',     label: 'Oral',         icon: 'i-heroicons-microphone' },
-  { key: 'gitflow',  label: 'Gitflow',      icon: 'i-simple-icons-git' },
+  { key: 'project',   label: 'Projet',      icon: 'i-heroicons-cube' },
+  { key: 'questions', label: 'Questions',   icon: 'i-heroicons-document-text' },
+  { key: 'oral',      label: 'Oral',        icon: 'i-heroicons-microphone' },
+  { key: 'gitflow',   label: 'Gitflow',     icon: 'i-simple-icons-git' },
 ]
+
+const router = useRouter()
+const toast = useToast()
+const { confirm } = useConfirm()
+
+async function deleteStudent() {
+  const confirmed = await confirm({
+    title: 'Supprimer cet élève ?',
+    message: `Cette action supprimera définitivement "${student.value.name}" ainsi que toutes ses questions et notes associées.`,
+    confirmLabel: 'Supprimer',
+    cancelLabel: 'Annuler',
+    confirmColor: 'red',
+    icon: 'i-heroicons-trash',
+  })
+
+  if (!confirmed) return
+
+  await db.students.delete(studentId)
+  toast.add({
+    title: 'Élève supprimé',
+    description: `${student.value.name} a été supprimé avec succès.`,
+    icon: 'i-heroicons-check-circle',
+    color: 'green',
+  })
+  router.push('/')
+}
 </script>
 
 <template>
@@ -94,6 +121,13 @@ const tabs = [
             variant="ghost"
             size="sm"
           />
+          <UButton
+            icon="i-heroicons-trash"
+            variant="ghost"
+            color="red"
+            size="sm"
+            @click="deleteStudent"
+          />
         </div>
       </div>
     </div>
@@ -136,6 +170,11 @@ const tabs = [
             <code class="info-value mono api-key">{{ student.teacherApiKey }}</code>
           </div>
         </div>
+      </div>
+
+      <!-- QUESTIONS TAB -->
+      <div v-if="activeTab === 'questions'" class="tab-panel">
+        <StudentQuestions :student-id="studentId" />
       </div>
 
       <!-- ORAL TAB -->

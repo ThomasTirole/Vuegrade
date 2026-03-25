@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// Page du pool de questions théoriques uniquement
+// Les questions pratiques sont créées directement sur la fiche élève
+
 import type { Question } from '~/types'
 
 const questionsStore = useQuestionsStore()
@@ -8,10 +11,11 @@ onMounted(() => questionsStore.fetchPool())
 
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
-const activeTab = ref<'theoretical' | 'practical'>('theoretical')
+const toast = useToast()
+const { confirm } = useConfirm()
 
+// Filtrer uniquement les questions théoriques (pool)
 const theoreticalQs = computed(() => pool.value.filter(q => q.type === 'theoretical'))
-const practicalQs = computed(() => pool.value.filter(q => q.type === 'practical'))
 
 function openNew() {
   editingQuestion.value = null
@@ -24,8 +28,41 @@ function openEdit(q: Question) {
 }
 
 async function deleteQuestion(q: Question) {
-  if (!confirm(`Supprimer la question "${q.ref} — ${q.title}" ?`)) return
+  const confirmed = await confirm({
+    title: 'Supprimer cette question ?',
+    message: `La question "${q.title}" sera définitivement supprimée du pool.`,
+    confirmLabel: 'Supprimer',
+    confirmColor: 'red',
+  })
+
+  if (!confirmed) return
+
   await questionsStore.deleteQuestion(q.id)
+  toast.add({
+    title: 'Question supprimée',
+    icon: 'i-heroicons-check-circle',
+    color: 'green',
+  })
+}
+
+async function handleSave(payload: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) {
+  await questionsStore.addQuestion(payload)
+  showModal.value = false
+  toast.add({
+    title: 'Question créée',
+    icon: 'i-heroicons-check-circle',
+    color: 'green',
+  })
+}
+
+async function handleUpdate(payload: Question) {
+  await questionsStore.updateQuestion(payload.id, payload)
+  showModal.value = false
+  toast.add({
+    title: 'Question modifiée',
+    icon: 'i-heroicons-check-circle',
+    color: 'green',
+  })
 }
 </script>
 
@@ -34,8 +71,8 @@ async function deleteQuestion(q: Question) {
     <header class="page-header">
       <div class="header-top">
         <div>
-          <h1 class="page-title">Pool de questions</h1>
-          <p class="page-subtitle mono">Questions théoriques et pratiques communes</p>
+          <h1 class="page-title">Pool de questions théoriques</h1>
+          <p class="page-subtitle mono">Questions communes attribuables aux élèves</p>
         </div>
         <UButton
           icon="i-heroicons-plus"
@@ -50,36 +87,10 @@ async function deleteQuestion(q: Question) {
       <div class="q-counts">
         <div class="q-count-chip">
           <span class="mono">{{ theoreticalQs.length }}</span>
-          <span>théoriques</span>
-        </div>
-        <div class="q-count-chip">
-          <span class="mono">{{ practicalQs.length }}</span>
-          <span>pratiques</span>
+          <span>questions</span>
         </div>
       </div>
     </header>
-
-    <!-- Tabs -->
-    <div class="tabs-bar">
-      <button
-        class="tab-btn"
-        :class="{ 'tab-btn--active': activeTab === 'theoretical' }"
-        @click="activeTab = 'theoretical'"
-      >
-        <span class="section-badge section-badge--theory">T</span>
-        Théoriques
-        <span class="tab-count mono">{{ theoreticalQs.length }}</span>
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ 'tab-btn--active': activeTab === 'practical' }"
-        @click="activeTab = 'practical'"
-      >
-        <span class="section-badge section-badge--practical">P</span>
-        Pratiques
-        <span class="tab-count mono">{{ practicalQs.length }}</span>
-      </button>
-    </div>
 
     <!-- Loading -->
     <div v-if="loading" class="loading-state">
@@ -89,44 +100,31 @@ async function deleteQuestion(q: Question) {
 
     <!-- Question list -->
     <div v-else class="question-list">
-      <template v-if="activeTab === 'theoretical'">
-        <QuestionCard
-          v-for="q in theoreticalQs"
-          :key="q.id"
-          :question="q"
-          @edit="openEdit(q)"
-          @delete="deleteQuestion(q)"
-        />
-        <div v-if="theoreticalQs.length === 0" class="empty-state">
-          <p>Aucune question théorique pour le moment.</p>
-          <UButton size="sm" variant="outline" @click="openNew">Ajouter</UButton>
-        </div>
-      </template>
-
-      <template v-if="activeTab === 'practical'">
-        <QuestionCard
-          v-for="q in practicalQs"
-          :key="q.id"
-          :question="q"
-          @edit="openEdit(q)"
-          @delete="deleteQuestion(q)"
-        />
-        <div v-if="practicalQs.length === 0" class="empty-state">
-          <p>Aucune question pratique pour le moment.</p>
-          <UButton size="sm" variant="outline" @click="openNew">Ajouter</UButton>
-        </div>
-      </template>
+      <UiQuestionCard
+        v-for="q in theoreticalQs"
+        :key="q.id"
+        :question="q"
+        @edit="openEdit(q)"
+        @delete="deleteQuestion(q)"
+      />
+      <div v-if="theoreticalQs.length === 0" class="empty-state">
+        <UIcon name="i-heroicons-document-text" class="empty-icon" />
+        <p>Aucune question théorique pour le moment.</p>
+        <p class="muted">Les questions créées ici pourront être attribuées aux élèves.</p>
+        <UButton size="sm" variant="outline" @click="openNew">Créer une question</UButton>
+      </div>
     </div>
 
-    <!-- Question modal -->
-    <QuestionModal
+    <!-- Question modal (théorique uniquement) -->
+    <UiQuestionModal
       v-if="showModal"
       :question="editingQuestion"
-      :default-type="activeTab"
-      @save="questionsStore.addQuestion($event); showModal = false"
-      @update="questionsStore.updateQuestion($event.id, $event); showModal = false"
+      mode="theoretical"
+      @save="handleSave"
+      @update="handleUpdate"
       @close="showModal = false"
     />
+
   </div>
 </template>
 
@@ -155,48 +153,7 @@ async function deleteQuestion(q: Question) {
 }
 .q-count-chip .mono { font-size: 1rem; font-weight: 600; color: var(--c-text); }
 
-.tabs-bar {
-  display: flex; gap: 2px;
-  border-bottom: 1px solid var(--c-border);
-  margin-bottom: 1.5rem;
-}
-.tab-btn {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: transparent; border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--c-text-soft);
-  font-size: 0.85rem; font-weight: 500;
-  cursor: pointer; transition: all 0.15s;
-  margin-bottom: -1px;
-  font-family: var(--font-display);
-}
-.tab-btn:hover { color: var(--c-text); }
-.tab-btn--active { color: var(--c-nuxt); border-bottom-color: var(--c-nuxt); }
-
-.tab-count {
-  font-size: 0.7rem; padding: 1px 6px;
-  background: var(--c-bg-hover); border-radius: 4px;
-  color: var(--c-text-muted);
-}
-
 .question-list { display: flex; flex-direction: column; gap: 0.75rem; }
-
-.section-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 5px;
-  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 600;
-}
-.section-badge--theory {
-  background: color-mix(in srgb, var(--c-info) 15%, transparent);
-  color: var(--c-info);
-  border: 1px solid color-mix(in srgb, var(--c-info) 30%, transparent);
-}
-.section-badge--practical {
-  background: color-mix(in srgb, var(--c-vue) 15%, transparent);
-  color: var(--c-vue);
-  border: 1px solid color-mix(in srgb, var(--c-vue) 30%, transparent);
-}
 
 .loading-state {
   display: flex; align-items: center; gap: 0.75rem;
@@ -205,9 +162,11 @@ async function deleteQuestion(q: Question) {
 }
 .empty-state {
   display: flex; flex-direction: column; align-items: center;
-  gap: 1rem; padding: 4rem 2rem; color: var(--c-text-muted); text-align: center;
+  gap: 0.75rem; padding: 4rem 2rem; color: var(--c-text-muted); text-align: center;
   background: var(--c-bg-card); border: 1px dashed var(--c-border); border-radius: 12px;
 }
+.empty-icon { font-size: 2.5rem; color: var(--c-text-muted); opacity: 0.5; }
+.muted { font-size: 0.8rem; margin: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }
 </style>

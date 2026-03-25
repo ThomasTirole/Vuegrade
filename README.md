@@ -1,4 +1,4 @@
-# VuGrade — Outil de notation M294
+# VueGrade — Outil de notation M294
 
 > Outil enseignant pour la gestion des projets Vue.js, la notation des examens oraux et la visualisation du gitflow des élèves.
 
@@ -153,7 +153,7 @@ Les notes sont sauvegardées en temps réel dans Supabase — tous les experts v
 
 ---
 
-## Déploiement de VuGrade
+## Déploiement de VueGrade
 
 ### Sur Vercel (recommandé, gratuit)
 
