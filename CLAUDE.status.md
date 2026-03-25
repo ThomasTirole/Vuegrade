@@ -87,6 +87,10 @@
   - [ ] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
   - [ ] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
   - [ ] Cache des résultats pour éviter de spammer les requêtes
+- [ ] **GitHub API avec token utilisateur** :
+  - [ ] Modifier `server/api/github/gitflow.get.ts` pour utiliser le token du user connecté (depuis BDD)
+  - [ ] Si pas de token → continuer sans auth (repos publics, 60 req/h)
+  - [ ] Si token présent → l'utiliser (repos privés, 5000 req/h)
 
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
