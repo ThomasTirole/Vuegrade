@@ -86,13 +86,26 @@
 - [ ] **Toast notifications Realtime** — "FHE a noté Q1 : 5" quand un expert note
 
 ### Multi-Tenancy (futur) 🟣
-- [ ] **Table `users`** — unifie profs + experts avec auth
-- [ ] **Table `classes`** — avec settings intégrés (org, template, pauses)
-- [ ] **Table `class_experts`** — liaison many-to-many
-- [ ] **Migration `class_id`** — sur students, questions, oral_sessions
-- [ ] **Sélecteur classe** — dropdown dans sidebar
-- [ ] **Auth login** — email/password simple
-- [ ] **Permissions par rôle** — teacher vs expert
+
+**Phase 2 : Tables**
+- [ ] Table `users` — unifie profs + experts avec auth + `github_token_encrypted`
+- [ ] Table `classes` — avec settings intégrés (org, template, pauses)
+- [ ] Table `class_experts` — liaison many-to-many
+
+**Phase 3 : Migration données**
+- [ ] Créer classe par défaut avec données actuelles
+- [ ] Ajouter `class_id` sur students, questions, oral_sessions
+- [ ] Migrer settings → colonnes de classes
+- [ ] Migrer experts → users
+
+**Phase 4 : Auth & UI**
+- [ ] Auth login (email/password)
+- [ ] Sélecteur classe dans sidebar
+- [ ] Page profil prof (saisie token GitHub)
+- [ ] Permissions par rôle (teacher vs expert)
+- [ ] Chiffrement token GitHub (pgcrypto ou Vault)
+
+> **Décision Token GitHub** : Option A retenue — chaque prof stocke son PAT (voir ADR-004)
 
 ---
 

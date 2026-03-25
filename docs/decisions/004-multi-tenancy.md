@@ -211,6 +211,44 @@ Garder deux tables distinctes pour profs et experts.
 
 ---
 
+## Token GitHub
+
+### Décision
+
+**Option A : Token par prof** — Chaque prof stocke son Personal Access Token (PAT) GitHub.
+
+### Pourquoi ?
+
+| Option | Description | Verdict |
+|--------|-------------|---------|
+| Token par prof | Chaque prof entre son PAT | ✅ **Retenu** — Simple, flexible |
+| Token par classe | Token dans config classe | ❌ Même complexité, moins logique |
+| GitHub App | App installée sur les orgs | ❌ Trop complexe pour un outil interne |
+| Pas de token | API publique (60 req/h) | ❌ Rate limit trop bas |
+
+### Implémentation
+
+```sql
+-- Ajout dans la table users
+ALTER TABLE users ADD COLUMN github_token_encrypted TEXT;
+```
+
+### Flux
+
+1. Le prof crée un PAT sur GitHub (Settings → Developer settings → Personal access tokens)
+2. Il le saisit dans ses paramètres VueGrade (page profil)
+3. Le token est chiffré avant stockage (pgcrypto ou Supabase Vault)
+4. Côté serveur, le token est déchiffré pour les appels API GitHub
+
+### Sécurité
+
+- Token **jamais exposé** côté client
+- Stockage **chiffré** en BDD
+- Utilisé uniquement dans les routes serveur (`server/api/github/*`)
+- Scope minimal requis : `repo:read` (lecture des repos de l'org)
+
+---
+
 ## Références
 
 - ADR-001 : Stack technique
