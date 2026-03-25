@@ -168,36 +168,6 @@ const exampleDeployUrl = computed(() => {
   if (!form.githubOrg || !form.projectTemplate) return ''
   return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
 })
-
-function addPausePosition() {
-  if (newPausePosition.value && newPausePosition.value > 0) {
-    const exists = form.manualPauses.some(p => p.position === newPausePosition.value)
-    if (!exists) {
-      form.manualPauses.push({ position: newPausePosition.value, duration: form.pauseDuration })
-      form.manualPauses.sort((a, b) => a.position - b.position)
-    }
-    newPausePosition.value = null
-  }
-}
-
-function removePausePosition(pause: ManualPause) {
-  form.manualPauses = form.manualPauses.filter(p => p.position !== pause.position)
-}
-
-function updatePauseDuration(pause: ManualPause, duration: number) {
-  pause.duration = duration
-}
-
-// Génère un exemple d'URL pour prévisualisation
-const exampleRepoUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://github.com/${form.githubOrg}/${form.projectTemplate}-{username}`
-})
-
-const exampleDeployUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
-})
 </script>
 
 <template>
