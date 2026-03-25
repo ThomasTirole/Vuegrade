@@ -51,7 +51,7 @@ Implémenter le CRUD des experts dans Settings, documenter l'architecture multi-
 | 🟣 | Permissions par rôle |
 
 ### 📋 Prochaine session
-- [ ] Tester le Realtime avec 2 navigateurs
+- [x] ~~Tester le Realtime avec 2 navigateurs~~ ✅ Fonctionne !
 - [ ] Import CSV élèves
 - [ ] Export notes
 
