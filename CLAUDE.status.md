@@ -73,11 +73,11 @@
 - [x] **CRUD Experts dans Settings** — ✅ fait Session 6
 - [x] **Supabase Realtime** — ✅ fait Session 6 (composable `useRealtimeGrades.ts`)
 - [ ] **Test end-to-end** — créer un élève, vérifier fiche, tester gitflow, notation
-- [ ] **Inscription utilisateurs avec validation** :
-  - [ ] Page d'inscription (`/register`) — formulaire nom, email, mot de passe, rôle
-  - [ ] Champ `status` sur table `users` : `pending` | `active` | `rejected`
-  - [ ] Les comptes `pending` ne peuvent pas se connecter
-  - [ ] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
+- [x] **Inscription utilisateurs avec validation** : ✅ Session 7
+  - [x] Page d'inscription (`/register`) — formulaire nom, email, mot de passe, rôle
+  - [x] Champ `status` sur table `users` : `pending` | `active` | `rejected`
+  - [x] Les comptes `pending` ne peuvent pas se connecter
+  - [x] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
   - [ ] (Futur) Page admin dans l'app pour valider les comptes en attente
 - [ ] **Création de classe** :
   - [ ] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
