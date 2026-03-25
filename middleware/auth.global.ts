@@ -1,8 +1,13 @@
 // ============================================================
-// MIDDLEWARE AUTH — Protection des routes
+// MIDDLEWARE AUTH — Protection des routes (client-side only)
 // ============================================================
 
 export default defineNuxtRouteMiddleware(async (to) => {
+  // Ne pas exécuter côté serveur (localStorage n'existe pas)
+  if (import.meta.server) {
+    return
+  }
+
   // Ne pas protéger la page de login
   if (to.path === '/login') {
     return

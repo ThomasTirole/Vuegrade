@@ -100,12 +100,20 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.selectedClassId = null
       this.classes = []
-      localStorage.removeItem('vugrade_session')
+      if (import.meta.client) {
+        localStorage.removeItem('vugrade_session')
+      }
       navigateTo('/login')
     },
 
     /** Restaurer la session depuis localStorage */
     async restoreSession() {
+      // SSR guard - localStorage n'existe pas côté serveur
+      if (import.meta.server) {
+        this.isLoading = false
+        return false
+      }
+
       this.isLoading = true
 
       try {
@@ -148,7 +156,7 @@ export const useAuthStore = defineStore('auth', {
 
     /** Persister la session en localStorage */
     persistSession() {
-      if (!this.user) return
+      if (!this.user || import.meta.server) return
 
       localStorage.setItem('vugrade_session', JSON.stringify({
         userId: this.user.id,
