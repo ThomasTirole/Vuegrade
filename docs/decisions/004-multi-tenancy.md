@@ -211,34 +211,53 @@ Garder deux tables distinctes pour profs et experts.
 
 ---
 
-## Token GitHub
+## Configuration GitHub
 
 ### Décision
 
-**Option A : Token par prof** — Chaque prof stocke son Personal Access Token (PAT) GitHub.
+**Tout en BDD, rien en `.env`** — Le prof configure son organisation et son token GitHub dans les Settings.
 
 ### Pourquoi ?
 
-| Option | Description | Verdict |
-|--------|-------------|---------|
-| Token par prof | Chaque prof entre son PAT | ✅ **Retenu** — Simple, flexible |
-| Token par classe | Token dans config classe | ❌ Même complexité, moins logique |
-| GitHub App | App installée sur les orgs | ❌ Trop complexe pour un outil interne |
-| Pas de token | API publique (60 req/h) | ❌ Rate limit trop bas |
+| Approche | Verdict |
+|----------|---------|
+| Variables `.env` | ❌ Pas flexible (1 seul prof, 1 seule org) |
+| Config par prof en BDD | ✅ **Retenu** — Multi-profs, multi-orgs |
+
+### Ce qui change
+
+| Paramètre | Avant (v1.0) | Après (multi-tenancy) |
+|-----------|--------------|----------------------|
+| `GITHUB_ORG` | `.env` + `settings` table | `classes.github_org` |
+| `GITHUB_TOKEN` | `.env` uniquement | `users.github_token_encrypted` |
+
+### Variables `.env` après migration
+
+```env
+# Supabase uniquement (infrastructure)
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+
+# Plus de GITHUB_* — tout est en BDD !
+```
 
 ### Implémentation
 
 ```sql
--- Ajout dans la table users
+-- Token chiffré dans la table users
 ALTER TABLE users ADD COLUMN github_token_encrypted TEXT;
+
+-- Org dans la table classes (déjà prévu)
+-- classes.github_org TEXT
 ```
 
-### Flux
+### Flux pour le prof
 
-1. Le prof crée un PAT sur GitHub (Settings → Developer settings → Personal access tokens)
-2. Il le saisit dans ses paramètres VueGrade (page profil)
-3. Le token est chiffré avant stockage (pgcrypto ou Supabase Vault)
-4. Côté serveur, le token est déchiffré pour les appels API GitHub
+1. Crée un PAT sur GitHub (Settings → Developer settings → Personal access tokens)
+2. Va dans **VueGrade → Profil** et saisit son token
+3. Le token est chiffré (pgcrypto ou Supabase Vault) avant stockage
+4. Côté serveur, déchiffré uniquement pour les appels API GitHub
 
 ### Sécurité
 

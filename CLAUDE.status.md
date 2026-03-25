@@ -105,7 +105,7 @@
 - [ ] Permissions par rôle (teacher vs expert)
 - [ ] Chiffrement token GitHub (pgcrypto ou Vault)
 
-> **Décision Token GitHub** : Option A retenue — chaque prof stocke son PAT (voir ADR-004)
+> **Décision Config GitHub** : Tout en BDD, rien en `.env` — org dans `classes`, token chiffré dans `users` (voir ADR-004)
 
 ---
 
