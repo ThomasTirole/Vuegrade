@@ -23,9 +23,9 @@ async function handleLogin() {
   isLoading.value = true
   errorMessage.value = ''
 
-  const success = await authStore.login(email.value, password.value)
+  const result = await authStore.login(email.value, password.value)
 
-  if (success) {
+  if (result.success) {
     toast.add({
       title: 'Connexion réussie',
       description: `Bienvenue, ${authStore.user?.name}`,
@@ -34,7 +34,7 @@ async function handleLogin() {
     })
     navigateTo('/')
   } else {
-    errorMessage.value = 'Email non reconnu'
+    errorMessage.value = result.error || 'Erreur de connexion'
   }
 
   isLoading.value = false
@@ -93,10 +93,13 @@ async function handleLogin() {
         </UButton>
       </form>
 
-      <!-- Info -->
-      <p class="login-info">
-        Outil interne pour enseignants et experts M294
-      </p>
+      <!-- Lien inscription -->
+      <div class="login-footer">
+        <p class="login-info">Pas encore de compte ?</p>
+        <NuxtLink to="/register" class="register-link">
+          Créer un compte
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
@@ -167,11 +170,27 @@ async function handleLogin() {
   font-size: 0.875rem;
 }
 
-.login-info {
+.login-footer {
   text-align: center;
-  font-size: 0.75rem;
-  color: var(--c-text-muted);
   margin-top: 1.5rem;
-  margin-bottom: 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--c-border-soft);
+}
+
+.login-info {
+  font-size: 0.8rem;
+  color: var(--c-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.register-link {
+  color: var(--c-nuxt);
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.register-link:hover {
+  text-decoration: underline;
 }
 </style>

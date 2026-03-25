@@ -64,6 +64,49 @@ export const useDB = () => {
     async delete(id: string): Promise<void> {
       const { error } = await supabase.from('users').delete().eq('id', id)
       if (error) throw error
+    },
+
+    /** Inscription d'un nouvel utilisateur (status = pending par défaut) */
+    async register(payload: {
+      name: string
+      email: string
+      password: string
+      role: User['role']
+    }): Promise<User> {
+      // Hash simple du mot de passe (en prod, utiliser bcrypt côté serveur)
+      // Pour l'instant on stocke en clair car outil interne
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          name: payload.name,
+          email: payload.email,
+          password_hash: payload.password, // TODO: hasher avec bcrypt
+          role: payload.role,
+          status: 'pending'
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return mapUser(data)
+    },
+
+    /** Vérifie les identifiants de connexion */
+    async verifyCredentials(email: string, password: string): Promise<User | null> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+
+      // Vérification simple du mot de passe (TODO: bcrypt)
+      // Pour l'instant on accepte si password_hash match ou si pas de hash (anciens comptes)
+      if (data.password_hash && data.password_hash !== password) {
+        return null
+      }
+
+      return mapUser(data)
     }
   }
 
@@ -592,6 +635,7 @@ function mapUser(d: Record<string, unknown>): User {
     name: d.name as string,
     email: d.email as string,
     role: d.role as User['role'],
+    status: (d.status as User['status']) || 'pending',
     githubTokenEncrypted: d.github_token_encrypted as string | undefined,
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,

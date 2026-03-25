@@ -7,12 +7,15 @@
 // ------------------------------------------------------------
 
 export type UserRole = 'teacher' | 'expert'
+export type UserStatus = 'pending' | 'active' | 'rejected'
 
 export interface User {
   id: string
   name: string
   email: string
   role: UserRole
+  /** Statut du compte : pending (en attente), active (validé), rejected (refusé) */
+  status: UserStatus
   /** Token GitHub chiffré (uniquement pour teachers) */
   githubTokenEncrypted?: string
   createdAt: string

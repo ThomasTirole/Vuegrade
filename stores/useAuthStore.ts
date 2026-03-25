@@ -35,22 +35,26 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /** Connexion utilisateur (simple email/password) */
-    async login(email: string, password: string): Promise<boolean> {
+    /** Connexion utilisateur (email/password) */
+    async login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
       const db = useDB()
 
       try {
-        // Chercher l'utilisateur par email
-        const user = await db.users.getByEmail(email)
+        // Vérifier les identifiants
+        const user = await db.users.verifyCredentials(email, password)
 
         if (!user) {
-          console.error('Utilisateur non trouvé')
-          return false
+          return { success: false, error: 'Email ou mot de passe incorrect' }
         }
 
-        // TODO: Vérifier le mot de passe hashé
-        // Pour l'instant, on accepte n'importe quel mot de passe (outil interne)
-        // En production, utiliser bcrypt ou Supabase Auth
+        // Vérifier le statut du compte
+        if (user.status === 'pending') {
+          return { success: false, error: 'Votre compte est en attente de validation' }
+        }
+
+        if (user.status === 'rejected') {
+          return { success: false, error: 'Votre compte a été refusé' }
+        }
 
         this.user = user
 
@@ -65,10 +69,36 @@ export const useAuthStore = defineStore('auth', {
         // Persister en localStorage
         this.persistSession()
 
-        return true
+        return { success: true }
       } catch (error) {
         console.error('Erreur de connexion:', error)
-        return false
+        return { success: false, error: 'Erreur de connexion' }
+      }
+    },
+
+    /** Inscription d'un nouvel utilisateur */
+    async register(payload: {
+      name: string
+      email: string
+      password: string
+      role: 'teacher' | 'expert'
+    }): Promise<{ success: boolean; error?: string }> {
+      const db = useDB()
+
+      try {
+        // Vérifier si l'email existe déjà
+        const existing = await db.users.getByEmail(payload.email)
+        if (existing) {
+          return { success: false, error: 'Cet email est déjà utilisé' }
+        }
+
+        // Créer le compte (status = pending)
+        await db.users.register(payload)
+
+        return { success: true }
+      } catch (error) {
+        console.error('Erreur d\'inscription:', error)
+        return { success: false, error: 'Erreur lors de l\'inscription' }
       }
     },
 
@@ -126,9 +156,9 @@ export const useAuthStore = defineStore('auth', {
         const session = JSON.parse(stored)
         const db = useDB()
 
-        // Vérifier que l'utilisateur existe toujours
+        // Vérifier que l'utilisateur existe toujours et est actif
         const user = await db.users.getById(session.userId)
-        if (!user) {
+        if (!user || user.status !== 'active') {
           localStorage.removeItem('vugrade_session')
           this.isLoading = false
           return false
