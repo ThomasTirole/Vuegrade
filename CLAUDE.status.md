@@ -79,10 +79,10 @@
   - [x] Les comptes `pending` ne peuvent pas se connecter
   - [x] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
   - [ ] (Futur) Page admin dans l'app pour valider les comptes en attente
-- [ ] **Création de classe** :
-  - [ ] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
-  - [ ] Accessible uniquement aux teachers
-  - [ ] La nouvelle classe apparaît dans le sélecteur de la sidebar
+- [x] **Création de classe** : ✅ Session 7
+  - [x] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
+  - [x] Accessible uniquement aux teachers
+  - [x] La nouvelle classe apparaît dans le sélecteur de la sidebar
 - [ ] **Badge "Live" amélioré** :
   - [ ] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
   - [ ] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
