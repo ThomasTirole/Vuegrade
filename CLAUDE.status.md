@@ -79,6 +79,10 @@
   - [ ] Les comptes `pending` ne peuvent pas se connecter
   - [ ] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
   - [ ] (Futur) Page admin dans l'app pour valider les comptes en attente
+- [ ] **Création de classe** :
+  - [ ] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
+  - [ ] Accessible uniquement aux teachers
+  - [ ] La nouvelle classe apparaît dans le sélecteur de la sidebar
 
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
