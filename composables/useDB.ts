@@ -336,12 +336,51 @@ export const useDB = () => {
     async getAll(): Promise<Expert[]> {
       const { data, error } = await supabase.from('experts').select('*').order('role')
       if (error) throw error
-      return data.map(e => ({
-        id: e.id,
-        name: e.name,
-        initials: e.initials,
-        role: e.role as Expert['role'],
-      }))
+      return data.map(mapExpert)
+    },
+
+    async getById(id: string): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async create(payload: Omit<Expert, 'id'>): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .insert({
+          name: payload.name,
+          initials: payload.initials,
+          role: payload.role
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async update(id: string, payload: Partial<Omit<Expert, 'id'>>): Promise<Expert> {
+      const { data, error } = await supabase
+        .from('experts')
+        .update({
+          ...(payload.name && { name: payload.name }),
+          ...(payload.initials && { initials: payload.initials }),
+          ...(payload.role && { role: payload.role })
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return mapExpert(data)
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase.from('experts').delete().eq('id', id)
+      if (error) throw error
     }
   }
 
@@ -443,6 +482,15 @@ function mapGrade(d: Record<string, unknown>): OralGrade {
     comment: d.comment as string | undefined,
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
+  }
+}
+
+function mapExpert(d: Record<string, unknown>): Expert {
+  return {
+    id: d.id as string,
+    name: d.name as string,
+    initials: d.initials as string,
+    role: d.role as Expert['role'],
   }
 }
 

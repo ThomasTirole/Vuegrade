@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { calculateFinalScore, SCORE_LABELS } from '~/types'
-import type { Question, OralSession, Expert } from '~/types'
+import type { Question, OralSession, Expert, OralGrade } from '~/types'
 
 const props = defineProps<{ studentId: string }>()
 
@@ -17,6 +17,15 @@ const currentExpertId = ref<string | null>(
   typeof window !== 'undefined' ? localStorage.getItem('vugrade_expert') : null
 )
 
+// Ref pour les grades (pour le realtime)
+const grades = ref<OralGrade[]>([])
+
+// Session ID réactif pour le realtime
+const sessionId = computed(() => session.value?.id ?? null)
+
+// Synchronisation realtime des notes
+useRealtimeGrades(sessionId, grades)
+
 onMounted(async () => {
   try {
     const [qs, ex, sess] = await Promise.all([
@@ -28,6 +37,8 @@ onMounted(async () => {
     questions.value = qs
     experts.value = ex
     session.value = sess
+    // Initialise les grades depuis la session
+    grades.value = sess?.grades ?? []
   } finally {
     loading.value = false
   }
@@ -41,8 +52,7 @@ function selectExpert(id: string) {
 
 // Score actuel pour une question / expert
 function getScore(questionId: string, expertId: string): number | null {
-  if (!session.value) return null
-  const grade = session.value.grades.find(
+  const grade = grades.value.find(
     g => g.questionId === questionId && g.expertId === expertId
   )
   return grade?.score ?? null
@@ -50,7 +60,6 @@ function getScore(questionId: string, expertId: string): number | null {
 
 // Note finale pour une question (moyenne des experts)
 function getQuestionFinal(questionId: string): number | null {
-  if (!session.value) return null
   const expertScores = experts.value
     .map(e => getScore(questionId, e.id))
     .filter((s): s is number => s !== null)
@@ -103,14 +112,14 @@ async function saveScore(questionId: string, score: number) {
       expertId: currentExpertId.value,
       score,
     })
-    // Mise à jour du score local dans session.value.grades
-    const existingIdx = session.value.grades.findIndex(
+    // Mise à jour locale immédiate (le realtime mettra aussi à jour, mais c'est plus réactif)
+    const existingIdx = grades.value.findIndex(
       g => g.questionId === questionId && g.expertId === currentExpertId.value
     )
     if (existingIdx !== -1) {
-      session.value.grades[existingIdx] = newGrade
+      grades.value[existingIdx] = newGrade
     } else {
-      session.value.grades.push(newGrade)
+      grades.value.push(newGrade)
     }
   } finally {
     saving.value = null
@@ -209,6 +218,7 @@ function getDisplayRef(question: Question, index: number): string {
           :display-ref="getDisplayRef(q, idx)"
           :experts="experts"
           :session="session"
+          :grades="grades"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -228,6 +238,7 @@ function getDisplayRef(question: Question, index: number): string {
           :display-ref="getDisplayRef(q, idx)"
           :experts="experts"
           :session="session"
+          :grades="grades"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"

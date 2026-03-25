@@ -7,10 +7,97 @@ interface ManualPause {
 }
 
 const db = useDB()
+const toast = useToast()
 const experts = ref<Expert[]>([])
 const settings = ref<Record<string, string>>({})
 const loading = ref(true)
 const saving = ref(false)
+
+// --- CRUD Experts ---
+const showExpertModal = ref(false)
+const editingExpert = ref<Expert | null>(null)
+const savingExpert = ref(false)
+const expertForm = reactive({
+  name: '',
+  initials: '',
+  role: 'expert' as Expert['role']
+})
+
+const roleOptions = [
+  { label: 'Expert', value: 'expert' },
+  { label: 'Enseignant', value: 'teacher' }
+]
+
+function openAddExpert() {
+  editingExpert.value = null
+  expertForm.name = ''
+  expertForm.initials = ''
+  expertForm.role = 'expert'
+  showExpertModal.value = true
+}
+
+function openEditExpert(expert: Expert) {
+  editingExpert.value = expert
+  expertForm.name = expert.name
+  expertForm.initials = expert.initials
+  expertForm.role = expert.role
+  showExpertModal.value = true
+}
+
+async function saveExpert() {
+  if (!expertForm.name.trim() || !expertForm.initials.trim()) {
+    toast.add({ title: 'Nom et initiales requis', icon: 'i-heroicons-exclamation-triangle', color: 'red' })
+    return
+  }
+
+  savingExpert.value = true
+  try {
+    if (editingExpert.value) {
+      const updated = await db.experts.update(editingExpert.value.id, {
+        name: expertForm.name.trim(),
+        initials: expertForm.initials.trim().toUpperCase(),
+        role: expertForm.role
+      })
+      const idx = experts.value.findIndex(e => e.id === updated.id)
+      if (idx !== -1) experts.value[idx] = updated
+      toast.add({ title: 'Expert modifié', icon: 'i-heroicons-check-circle', color: 'green' })
+    } else {
+      const created = await db.experts.create({
+        name: expertForm.name.trim(),
+        initials: expertForm.initials.trim().toUpperCase(),
+        role: expertForm.role
+      })
+      experts.value.push(created)
+      toast.add({ title: 'Expert ajouté', icon: 'i-heroicons-check-circle', color: 'green' })
+    }
+    showExpertModal.value = false
+  } catch (err) {
+    console.error(err)
+    toast.add({ title: 'Erreur lors de la sauvegarde', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    savingExpert.value = false
+  }
+}
+
+const confirmDeleteExpert = ref<Expert | null>(null)
+
+async function deleteExpert(expert: Expert) {
+  confirmDeleteExpert.value = expert
+}
+
+async function confirmDelete() {
+  if (!confirmDeleteExpert.value) return
+  try {
+    await db.experts.delete(confirmDeleteExpert.value.id)
+    experts.value = experts.value.filter(e => e.id !== confirmDeleteExpert.value!.id)
+    toast.add({ title: 'Expert supprimé', icon: 'i-heroicons-check-circle', color: 'green' })
+  } catch (err) {
+    console.error(err)
+    toast.add({ title: 'Erreur lors de la suppression', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    confirmDeleteExpert.value = null
+  }
+}
 
 // Formulaire settings éditables
 const form = reactive({
@@ -58,8 +145,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-const toast = useToast()
 
 async function saveSettings() {
   saving.value = true
@@ -123,11 +208,22 @@ const exampleDeployUrl = computed(() => {
     <div class="settings-grid">
       <!-- Experts -->
       <section class="settings-section">
-        <h2 class="section-title">
-          <UIcon name="i-heroicons-user-group" />
-          Experts
-        </h2>
-        <p class="section-desc">Les experts participent à la notation orale. Leurs initiales sont utilisées dans les grilles de notation.</p>
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">
+              <UIcon name="i-heroicons-user-group" />
+              Experts
+            </h2>
+            <p class="section-desc">Les experts participent à la notation orale. Leurs initiales sont utilisées dans les grilles de notation.</p>
+          </div>
+          <UButton
+            icon="i-heroicons-plus"
+            size="sm"
+            @click="openAddExpert"
+          >
+            Ajouter
+          </UButton>
+        </div>
 
         <div v-if="loading" class="loading-state">
           <UIcon name="i-heroicons-arrow-path" class="spin" />
@@ -137,15 +233,124 @@ const exampleDeployUrl = computed(() => {
             <div class="expert-avatar mono">{{ expert.initials }}</div>
             <div class="expert-info">
               <span class="expert-name">{{ expert.name }}</span>
-              <span class="expert-role mono" :class="`role--${expert.role}`">{{ expert.role }}</span>
+              <span class="expert-role mono" :class="`role--${expert.role}`">{{ expert.role === 'teacher' ? 'enseignant' : 'expert' }}</span>
+            </div>
+            <div class="expert-actions">
+              <UButton
+                icon="i-heroicons-pencil"
+                size="xs"
+                variant="ghost"
+                color="gray"
+                @click="openEditExpert(expert)"
+              />
+              <UButton
+                icon="i-heroicons-trash"
+                size="xs"
+                variant="ghost"
+                color="red"
+                @click="deleteExpert(expert)"
+              />
             </div>
           </div>
+          <div v-if="experts.length === 0" class="empty-state">
+            Aucun expert configuré
+          </div>
         </div>
-        <p class="setting-note">
-          <UIcon name="i-heroicons-information-circle" />
-          Les experts sont configurés directement en base Supabase (table <code class="mono">experts</code>).
-        </p>
       </section>
+
+      <!-- Modal Expert -->
+      <UModal v-model="showExpertModal">
+        <UCard>
+          <template #header>
+            <div class="modal-header">
+              <h3>{{ editingExpert ? 'Modifier l\'expert' : 'Ajouter un expert' }}</h3>
+            </div>
+          </template>
+
+          <div class="expert-form">
+            <UFormGroup label="Nom complet">
+              <UInput
+                v-model="expertForm.name"
+                placeholder="Jean Dupont"
+                icon="i-heroicons-user"
+              />
+            </UFormGroup>
+            <UFormGroup label="Initiales (3 lettres)">
+              <UInput
+                v-model="expertForm.initials"
+                placeholder="JDP"
+                maxlength="3"
+                class="initials-input"
+              />
+            </UFormGroup>
+            <UFormGroup label="Rôle">
+              <USelectMenu
+                v-model="expertForm.role"
+                :options="roleOptions"
+                value-attribute="value"
+                option-attribute="label"
+              />
+            </UFormGroup>
+          </div>
+
+          <template #footer>
+            <div class="modal-footer">
+              <UButton
+                variant="ghost"
+                color="gray"
+                @click="showExpertModal = false"
+              >
+                Annuler
+              </UButton>
+              <UButton
+                :loading="savingExpert"
+                icon="i-heroicons-check"
+                @click="saveExpert"
+              >
+                {{ editingExpert ? 'Enregistrer' : 'Ajouter' }}
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
+
+      <!-- Modal confirmation suppression -->
+      <UModal v-model="confirmDeleteExpert" :model-value="!!confirmDeleteExpert" @update:model-value="confirmDeleteExpert = null">
+        <UCard>
+          <template #header>
+            <div class="modal-header modal-header--danger">
+              <UIcon name="i-heroicons-exclamation-triangle" />
+              <h3>Supprimer l'expert</h3>
+            </div>
+          </template>
+
+          <p>
+            Voulez-vous vraiment supprimer <strong>{{ confirmDeleteExpert?.name }}</strong> ({{ confirmDeleteExpert?.initials }}) ?
+          </p>
+          <p class="warning-text">
+            Cette action supprimera aussi toutes ses notes attribuées.
+          </p>
+
+          <template #footer>
+            <div class="modal-footer">
+              <UButton
+                variant="ghost"
+                color="gray"
+                @click="confirmDeleteExpert = null"
+              >
+                Annuler
+              </UButton>
+              <UButton
+                color="red"
+                icon="i-heroicons-trash"
+                @click="confirmDelete"
+              >
+                Supprimer
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
 
       <!-- Projet config -->
       <section class="settings-section">
@@ -348,6 +553,13 @@ const exampleDeployUrl = computed(() => {
   display: flex; flex-direction: column; gap: 1rem;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .section-title {
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 1rem; font-weight: 600; margin: 0;
@@ -383,6 +595,65 @@ const exampleDeployUrl = computed(() => {
 .role--expert {
   background: color-mix(in srgb, var(--c-info) 12%, transparent);
   color: var(--c-info);
+}
+
+.expert-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.expert-row:hover .expert-actions {
+  opacity: 1;
+}
+
+.empty-state {
+  padding: 1rem;
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: 0.85rem;
+}
+
+/* Modal */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.modal-header--danger {
+  color: var(--c-error);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.expert-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.initials-input {
+  max-width: 100px;
+  text-transform: uppercase;
+}
+
+.warning-text {
+  font-size: 0.85rem;
+  color: var(--c-text-muted);
+  margin-top: 0.5rem;
 }
 
 /* GitHub */

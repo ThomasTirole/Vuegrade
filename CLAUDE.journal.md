@@ -9,6 +9,54 @@
 
 ---
 
+## Session 6 — 2026-03-25
+
+### 🎯 Objectif de la session
+Implémenter le CRUD des experts dans Settings, documenter l'architecture multi-tenancy, et ajouter le Realtime pour la co-notation.
+
+### ✅ Réalisé
+- **Documentation architecture multi-tenancy** : création de `docs/decisions/004-multi-tenancy.md`
+  - Modèle : users (profs + experts) → classes → students/questions
+  - Settings par classe (pas par prof) : org GitHub, template, pauses, etc.
+  - Experts avec accès limité à leurs classes assignées
+- **CRUD Experts dans `useDB.ts`** : ajout des méthodes `create`, `update`, `delete`, `getById`
+- **UI CRUD Experts dans Settings** :
+  - Bouton "Ajouter" un expert
+  - Boutons édition/suppression sur chaque ligne (hover)
+  - Modal de création/édition (nom, initiales, rôle)
+  - Modal de confirmation de suppression
+  - Correction : initiales limitées à 3 caractères
+- **Supabase Realtime pour la co-notation** :
+  - Nouveau composable `useRealtimeGrades.ts`
+  - S'abonne aux changements de `oral_grades` filtrés par session
+  - Mise à jour automatique de l'UI quand un autre expert note
+  - Modification de `OralPanel.vue` et `OralQuestionRow.vue`
+- **Ajout consigne versioning** dans `CLAUDE.md`
+
+### 🔧 Décisions techniques
+- **Settings par classe** : un prof peut avoir des orgs différentes selon les classes (ex: 2 écoles)
+- **Table users unifiée** : profs et experts dans la même table avec rôle différent
+- **Experts avec auth** : les experts pourront se connecter et voir uniquement leurs classes
+- **Realtime** : abonnement Postgres Changes sur table `oral_grades`
+
+### 📋 Liste des fonctionnalités futures (multi-tenancy)
+| Priorité | Tâche |
+|----------|-------|
+| 🟣 | Table `users` (unifie profs + experts) |
+| 🟣 | Table `classes` avec settings intégrés |
+| 🟣 | Table `class_experts` (liaison many-to-many) |
+| 🟣 | Migration `class_id` sur students/questions |
+| 🟣 | Sélecteur classe dans sidebar |
+| 🟣 | Auth login (email/password) |
+| 🟣 | Permissions par rôle |
+
+### 📋 Prochaine session
+- [ ] Tester le Realtime avec 2 navigateurs
+- [ ] Import CSV élèves
+- [ ] Export notes
+
+---
+
 ## Session 5 — 2026-03-24
 
 ### 🎯 Objectif de la session

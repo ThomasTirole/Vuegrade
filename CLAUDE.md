@@ -144,6 +144,18 @@ Quand on te demande de créer/modifier des tables, utilise les outils MCP Supaba
 3. **Implémenter** les changements demandés
 4. **Mettre à jour** `CLAUDE.journal.md` avec une entrée datée
 5. **Mettre à jour** `CLAUDE.status.md` si l'état du projet change
+6. **Versionner** les changements avec un commit Git descriptif
+
+### Versioning Git
+
+À la fin de chaque session ou après chaque fonctionnalité complète :
+- **Commit** avec un message clair suivant le format : `type(scope): description`
+- Types : `feat`, `fix`, `docs`, `refactor`, `style`, `test`, `chore`
+- Exemples :
+  - `feat(oral): add realtime grade sync between experts`
+  - `fix(settings): limit expert initials to 3 characters`
+  - `docs: update CLAUDE.md with versioning instructions`
+- **Ne pas push** automatiquement — laisser l'utilisateur décider
 
 ### Ordre de priorité des fichiers à consulter
 1. `CLAUDE.md` (ce fichier)

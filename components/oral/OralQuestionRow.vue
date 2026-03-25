@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { SCORE_LABELS } from '~/types'
-import type { Question, OralSession, Expert } from '~/types'
+import type { Question, OralSession, Expert, OralGrade } from '~/types'
 
 const props = defineProps<{
   question: Question
   displayRef: string // Ref à afficher (T-X pour théoriques, P-X calculé pour pratiques)
   experts: Expert[]
   session: OralSession
+  grades: OralGrade[] // Grades en temps réel
   currentExpertId: string | null
   saving: boolean
 }>()
@@ -20,7 +21,7 @@ const scoreValues = [1, 2, 3, 4, 5, 6]
 
 // Récupère le score d'un expert pour cette question
 function getExpertScore(expertId: string): number | null {
-  const grade = props.session.grades.find(
+  const grade = props.grades.find(
     g => g.questionId === props.question.id && g.expertId === expertId
   )
   return grade?.score ?? null
