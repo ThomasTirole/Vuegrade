@@ -159,11 +159,16 @@ function editToken() {
           Token GitHub
         </h2>
         <p class="section-desc">
-          Le token GitHub permet d'accéder aux repos des élèves et de visualiser leur gitflow.
-          <a href="https://github.com/settings/tokens" target="_blank" class="link">
-            Créer un token <UIcon name="i-heroicons-arrow-top-right-on-square" />
-          </a>
+          Le token GitHub permet d'augmenter la limite de requêtes API (de 60 à 5000/heure) pour visualiser le gitflow des élèves.
         </p>
+
+        <div class="token-info-box">
+          <UIcon name="i-heroicons-information-circle" />
+          <div>
+            <strong>Important :</strong> Le gitflow fonctionne uniquement avec des repos <strong>publics</strong>.
+            Lors de la création d'un GitHub Classroom Assignment, veillez à définir le template en <code>Public</code>.
+          </div>
+        </div>
 
         <div class="token-form">
           <UFormGroup label="Personal Access Token">
@@ -412,6 +417,27 @@ function editToken() {
   color: var(--c-text-muted);
   margin: 0;
   font-style: italic;
+}
+
+.token-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--c-info) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-info) 25%, transparent);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--c-text-soft);
+  margin-bottom: 1rem;
+}
+
+.token-info-box code {
+  background: var(--c-bg-hover);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: var(--c-nuxt);
+  font-family: var(--font-mono);
 }
 
 .token-actions {
