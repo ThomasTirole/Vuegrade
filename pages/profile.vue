@@ -186,6 +186,12 @@ function editToken() {
             </div>
           </UFormGroup>
 
+          <!-- Note sécurité -->
+          <p class="token-security-note">
+            <UIcon name="i-heroicons-lock-closed" />
+            Votre token est stocké de manière sécurisée en base de données et n'est jamais exposé côté client.
+          </p>
+
           <!-- Actions -->
           <div class="token-actions">
             <template v-if="tokenSaved">
@@ -396,6 +402,16 @@ function editToken() {
 
 .token-input {
   flex: 1;
+}
+
+.token-security-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--c-text-muted);
+  margin: 0;
+  font-style: italic;
 }
 
 .token-actions {
