@@ -20,11 +20,11 @@ const currentExpertId = ref<string | null>(
 // Ref pour les grades (pour le realtime)
 const grades = ref<OralGrade[]>([])
 
-// Session ID réactif pour le realtime
-const sessionId = computed(() => session.value?.id ?? null)
+// Ref réactive pour studentId (pour le realtime)
+const studentIdRef = toRef(props, 'studentId')
 
-// Synchronisation realtime des notes
-useRealtimeGrades(sessionId, grades)
+// Synchronisation realtime des notes et sessions
+useRealtimeGrades(studentIdRef, session, grades)
 
 onMounted(async () => {
   try {

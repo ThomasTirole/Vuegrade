@@ -275,7 +275,7 @@ const currentStudent = ref<string | null>(null)
             </div>
           </div>
 
-          <OralPanel :student-id="currentStudent" />
+          <OralPanel :key="currentStudent" :student-id="currentStudent" />
         </template>
       </main>
     </div>
