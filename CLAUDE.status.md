@@ -112,13 +112,13 @@
 - [x] Migrer settings → colonnes de classes
 - [x] Migrer experts → users
 
-**Phase 4 : Auth & UI** (en cours)
+**Phase 4 : Auth & UI** ✅
 - [x] Auth login (email/password) — `pages/login.vue`
 - [x] Middleware auth — `middleware/auth.global.ts`
 - [x] Sélecteur classe dans sidebar
 - [x] Filtrage données par classe (stores)
 - [x] Permissions UI par rôle (teacher vs expert)
-- [ ] Page profil prof (saisie token GitHub)
+- [x] Page profil prof (saisie token GitHub) — `pages/profile.vue`
 - [ ] Chiffrement token GitHub (pgcrypto ou Vault)
 
 > **Décision Config GitHub** : Tout en BDD, rien en `.env` — org dans `classes`, token chiffré dans `users` (voir ADR-004)
