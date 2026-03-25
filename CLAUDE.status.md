@@ -7,7 +7,7 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 6
+**Session** : Session 7
 **Date** : 2026-03-25
 **Par** : Claude Code (Opus 4.5)
 
@@ -85,24 +85,26 @@
 - [ ] **Mode présentation** — plein écran pour l'oral
 - [ ] **Toast notifications Realtime** — "FHE a noté Q1 : 5" quand un expert note
 
-### Multi-Tenancy (futur) 🟣
+### Multi-Tenancy 🟣
 
-**Phase 2 : Tables**
-- [ ] Table `users` — unifie profs + experts avec auth + `github_token_encrypted`
-- [ ] Table `classes` — avec settings intégrés (org, template, pauses)
-- [ ] Table `class_experts` — liaison many-to-many
+**Phase 2 : Tables** ✅
+- [x] Table `users` — unifie profs + experts avec auth + `github_token_encrypted`
+- [x] Table `classes` — avec settings intégrés (org, template, pauses)
+- [x] Table `class_experts` — liaison many-to-many
 
-**Phase 3 : Migration données**
-- [ ] Créer classe par défaut avec données actuelles
-- [ ] Ajouter `class_id` sur students, questions, oral_sessions
-- [ ] Migrer settings → colonnes de classes
-- [ ] Migrer experts → users
+**Phase 3 : Migration données** ✅
+- [x] Créer classe par défaut avec données actuelles
+- [x] Ajouter `class_id` sur students, questions, oral_sessions
+- [x] Migrer settings → colonnes de classes
+- [x] Migrer experts → users
 
-**Phase 4 : Auth & UI**
-- [ ] Auth login (email/password)
-- [ ] Sélecteur classe dans sidebar
+**Phase 4 : Auth & UI** (en cours)
+- [x] Auth login (email/password) — `pages/login.vue`
+- [x] Middleware auth — `middleware/auth.global.ts`
+- [x] Sélecteur classe dans sidebar
+- [x] Filtrage données par classe (stores)
+- [x] Permissions UI par rôle (teacher vs expert)
 - [ ] Page profil prof (saisie token GitHub)
-- [ ] Permissions par rôle (teacher vs expert)
 - [ ] Chiffrement token GitHub (pgcrypto ou Vault)
 
 > **Décision Config GitHub** : Tout en BDD, rien en `.env` — org dans `classes`, token chiffré dans `users` (voir ADR-004)
@@ -154,12 +156,13 @@ Supabase (Session 2 + Session 4) :
 
 ---
 
-## 📊 Métriques actuelles
+## Métriques actuelles
 
 | Indicateur | Valeur |
 |---|---|
-| Fichiers créés | 30 |
-| Pages fonctionnelles | 6 (dashboard, fiche, new, edit, questions, settings) |
+| Fichiers créés | 35 |
+| Pages fonctionnelles | 7 (dashboard, fiche, new, edit, questions, settings, login) |
 | Composants créés | 6 |
-| Couverture TypeScript | ~85% |
+| Stores Pinia | 3 (students, questions, auth) |
+| Couverture TypeScript | ~90% |
 | Tests | Aucun |

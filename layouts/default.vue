@@ -1,3 +1,25 @@
+<script setup lang="ts">
+const authStore = useAuthStore()
+
+const classOptions = computed(() =>
+  authStore.accessibleClasses.map(c => ({
+    label: `${c.name} (${c.year})`,
+    value: c.id,
+  }))
+)
+
+const selectedClassId = computed({
+  get: () => authStore.selectedClassId,
+  set: (val) => {
+    if (val) authStore.selectClass(val)
+  },
+})
+
+function handleLogout() {
+  authStore.logout()
+}
+</script>
+
 <template>
   <div class="app-shell">
     <!-- Sidebar -->
@@ -8,6 +30,23 @@
           <span class="logo-main">VueGrade</span>
           <span class="logo-sub">Module 294</span>
         </div>
+      </div>
+
+      <!-- Sélecteur de classe -->
+      <div v-if="authStore.isAuthenticated" class="class-selector">
+        <span class="nav-label">Classe</span>
+        <USelectMenu
+          v-model="selectedClassId"
+          :options="classOptions"
+          value-attribute="value"
+          option-attribute="label"
+          placeholder="Sélectionner une classe"
+          size="sm"
+        >
+          <template #leading>
+            <UIcon name="i-heroicons-academic-cap" class="selector-icon" />
+          </template>
+        </USelectMenu>
       </div>
 
       <nav class="sidebar-nav">
@@ -39,7 +78,19 @@
           <UIcon name="i-heroicons-cog-6-tooth" />
           <span>Paramètres</span>
         </NuxtLink>
-        <div class="version-tag">v1.0.0 — M294</div>
+
+        <!-- User info -->
+        <div v-if="authStore.user" class="user-info">
+          <div class="user-badge" :class="{ 'user-badge--teacher': authStore.isTeacher }">
+            <UIcon :name="authStore.isTeacher ? 'i-heroicons-academic-cap' : 'i-heroicons-user'" />
+            <span class="user-name">{{ authStore.user.name }}</span>
+          </div>
+          <button class="logout-btn" title="Se déconnecter" @click="handleLogout">
+            <UIcon name="i-heroicons-arrow-right-on-rectangle" />
+          </button>
+        </div>
+
+        <div class="version-tag">v1.1.0 — M294</div>
       </div>
     </aside>
 
@@ -167,6 +218,72 @@
   color: var(--c-text-muted);
   padding: 0.25rem 0.5rem;
   text-align: center;
+}
+
+/* ---- Class Selector ---- */
+.class-selector {
+  padding: 0 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.class-selector .nav-label {
+  padding-left: 0.5rem;
+}
+
+.selector-icon {
+  color: var(--c-nuxt);
+}
+
+/* ---- User Info ---- */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  background: var(--c-bg-hover);
+  border-radius: 8px;
+}
+
+.user-badge {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--c-text-soft);
+}
+
+.user-badge--teacher {
+  color: var(--c-nuxt);
+}
+
+.user-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.logout-btn:hover {
+  background: var(--c-bg-card);
+  color: var(--c-error);
+  border-color: var(--c-border);
 }
 
 /* ---- Main ---- */

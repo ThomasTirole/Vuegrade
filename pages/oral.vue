@@ -8,9 +8,10 @@ interface ManualPause {
 
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const authStore = useAuthStore()
 const db = useDB()
 
-// Settings pour les pauses
+// Settings pour les pauses (depuis la classe sélectionnée)
 const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
 const pauseDuration = ref(15) // Durée par défaut des pauses auto en minutes
 const manualPauses = ref<ManualPause[]>([]) // Pauses manuelles avec durée individuelle
@@ -20,24 +21,17 @@ const showPauseMenu = ref<number | null>(null) // Position où afficher le menu
 const expandedDuration = ref<number | null>(null) // Position de la pause dont on édite la durée
 const durationOptions = [5, 10, 15]
 
-onMounted(async () => {
-  studentsStore.fetchAll()
-
-  // Charger les settings de pause
-  const settings = await db.settings.getAll()
-  pauseInterval.value = parseInt(settings.pause_interval || '4', 10)
-  pauseDuration.value = parseInt(settings.pause_duration || '15', 10)
-  try {
-    const saved = JSON.parse(settings.pause_positions || '[]')
-    // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
-    if (saved.length > 0 && typeof saved[0] === 'number') {
-      manualPauses.value = saved.map((pos: number) => ({ position: pos, duration: pauseDuration.value }))
-    } else {
-      manualPauses.value = saved
-    }
-  } catch {
-    manualPauses.value = []
+// Charger les paramètres quand la classe change
+watch(() => authStore.selectedClass, (cls) => {
+  if (cls) {
+    pauseInterval.value = cls.pauseInterval
+    pauseDuration.value = cls.pauseDuration
+    manualPauses.value = cls.pausePositions || []
   }
+}, { immediate: true })
+
+onMounted(() => {
+  studentsStore.fetchAll()
 })
 
 // Trier par ordre de passage

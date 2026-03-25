@@ -9,6 +9,60 @@
 
 ---
 
+## Session 7 — 2026-03-25
+
+### Objectif de la session
+Implémenter Phase 4 du multi-tenancy : authentification, sélecteur de classe, filtrage des données par classe.
+
+### Réalisé
+- **Store d'authentification** (`stores/useAuthStore.ts`)
+  - Gestion login/logout avec session localStorage
+  - Sélection de classe active
+  - Chargement des classes accessibles (teacher vs expert)
+  - Restauration de session automatique
+
+- **Page de connexion** (`pages/login.vue`)
+  - UI de connexion email/mot de passe
+  - Layout sans sidebar (layout: false)
+  - Redirection vers dashboard après connexion
+
+- **Middleware d'auth** (`middleware/auth.global.ts`)
+  - Protection de toutes les routes sauf /login
+  - Restauration session automatique
+
+- **Plugin d'initialisation** (`plugins/auth.client.ts`)
+  - Restauration session au chargement de l'app
+
+- **Mise à jour du layout** (`layouts/default.vue`)
+  - Sélecteur de classe dans la sidebar
+  - Affichage utilisateur connecté + rôle
+  - Bouton de déconnexion
+  - Version mise à jour v1.1.0
+
+- **Stores mis à jour pour classId**
+  - `useStudentsStore.ts` : filtre par classe sélectionnée, auto-reload
+  - `useQuestionsStore.ts` : filtre par classe sélectionnée, auto-reload
+
+- **Page Settings mise à jour**
+  - Gestion des experts par classe (ajout/retrait)
+  - Paramètres de classe (GitHub org, template, pauses) pour enseignants
+  - Lecture seule pour experts
+
+- **Page Oral mise à jour**
+  - Utilise les paramètres de la classe sélectionnée
+
+### Décisions techniques
+- **Authentification simple** : stockage en localStorage (outil interne, pas de token JWT)
+- **Filtrage automatique** : les stores réagissent au changement de classe via `watch()`
+- **Permissions UI** : les sections enseignant sont masquées pour les experts
+
+### Prochaines étapes
+- [ ] Test end-to-end de l'authentification
+- [ ] Chiffrement token GitHub (pgcrypto)
+- [ ] Page profil enseignant pour saisir token GitHub
+
+---
+
 ## Session 6 — 2026-03-25
 
 ### 🎯 Objectif de la session

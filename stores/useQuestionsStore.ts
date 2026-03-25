@@ -1,9 +1,11 @@
 // stores/useQuestionsStore.ts
+// Gère les questions de la classe sélectionnée
 import { defineStore } from 'pinia'
 import type { Question } from '~/types'
 
 export const useQuestionsStore = defineStore('questions', () => {
   const db = useDB()
+  const authStore = useAuthStore()
 
   /** Pool commun (théoriques) */
   const pool = ref<Question[]>([])
@@ -11,11 +13,27 @@ export const useQuestionsStore = defineStore('questions', () => {
   const byStudent = ref<Record<string, Question[]>>({})
   const loading = ref(false)
 
+  // Recharge automatique quand la classe change
+  watch(() => authStore.selectedClassId, (newClassId) => {
+    if (newClassId) {
+      fetchPool()
+    } else {
+      pool.value = []
+      byStudent.value = {}
+    }
+  })
+
   async function fetchPool() {
+    const classId = authStore.selectedClassId
+    if (!classId) {
+      pool.value = []
+      return
+    }
+
     loading.value = true
     try {
       // Utilise la nouvelle méthode qui ne récupère que les théoriques du pool
-      pool.value = await db.questions.getTheoreticalPool()
+      pool.value = await db.questions.getTheoreticalPool(classId)
     } finally {
       loading.value = false
     }
@@ -37,7 +55,13 @@ export const useQuestionsStore = defineStore('questions', () => {
       payload.ref = `T-${nextNum}`
     }
 
-    const q = await db.questions.create(payload)
+    // Associer automatiquement à la classe sélectionnée
+    const questionData = {
+      ...payload,
+      classId: authStore.selectedClassId || undefined,
+    }
+
+    const q = await db.questions.create(questionData)
     if (!q.studentId) {
       pool.value.push(q)
     } else if (byStudent.value[q.studentId]) {
