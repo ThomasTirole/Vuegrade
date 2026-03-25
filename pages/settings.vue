@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Expert } from '~/types'
+import type { User, Class } from '~/types'
 
 interface ManualPause {
   position: number
@@ -8,98 +8,73 @@ interface ManualPause {
 
 const db = useDB()
 const toast = useToast()
-const experts = ref<Expert[]>([])
-const settings = ref<Record<string, string>>({})
+const authStore = useAuthStore()
+
+// Experts de la classe
+const classExperts = ref<User[]>([])
+const allExperts = ref<User[]>([])
 const loading = ref(true)
 const saving = ref(false)
 
-// --- CRUD Experts ---
-const showExpertModal = ref(false)
-const editingExpert = ref<Expert | null>(null)
-const savingExpert = ref(false)
-const expertForm = reactive({
-  name: '',
-  initials: '',
-  role: 'expert' as Expert['role']
+// Permissions
+const isTeacher = computed(() => authStore.isTeacher)
+const currentClass = computed(() => authStore.selectedClass)
+
+// --- Gestion des experts de la classe ---
+const showAddExpertModal = ref(false)
+const addingExpert = ref(false)
+const selectedExpertId = ref<string | null>(null)
+
+// Experts disponibles (non déjà assignés à la classe)
+const availableExperts = computed(() => {
+  const assignedIds = new Set(classExperts.value.map(e => e.id))
+  return allExperts.value.filter(e => !assignedIds.has(e.id) && e.role === 'expert')
 })
 
-const roleOptions = [
-  { label: 'Expert', value: 'expert' },
-  { label: 'Enseignant', value: 'teacher' }
-]
-
-function openAddExpert() {
-  editingExpert.value = null
-  expertForm.name = ''
-  expertForm.initials = ''
-  expertForm.role = 'expert'
-  showExpertModal.value = true
+async function loadClassExperts() {
+  if (!currentClass.value) return
+  classExperts.value = await db.classes.getExperts(currentClass.value.id)
 }
 
-function openEditExpert(expert: Expert) {
-  editingExpert.value = expert
-  expertForm.name = expert.name
-  expertForm.initials = expert.initials
-  expertForm.role = expert.role
-  showExpertModal.value = true
-}
+async function addExpertToClass() {
+  if (!selectedExpertId.value || !currentClass.value) return
 
-async function saveExpert() {
-  if (!expertForm.name.trim() || !expertForm.initials.trim()) {
-    toast.add({ title: 'Nom et initiales requis', icon: 'i-heroicons-exclamation-triangle', color: 'red' })
-    return
-  }
-
-  savingExpert.value = true
+  addingExpert.value = true
   try {
-    if (editingExpert.value) {
-      const updated = await db.experts.update(editingExpert.value.id, {
-        name: expertForm.name.trim(),
-        initials: expertForm.initials.trim().toUpperCase(),
-        role: expertForm.role
-      })
-      const idx = experts.value.findIndex(e => e.id === updated.id)
-      if (idx !== -1) experts.value[idx] = updated
-      toast.add({ title: 'Expert modifié', icon: 'i-heroicons-check-circle', color: 'green' })
-    } else {
-      const created = await db.experts.create({
-        name: expertForm.name.trim(),
-        initials: expertForm.initials.trim().toUpperCase(),
-        role: expertForm.role
-      })
-      experts.value.push(created)
-      toast.add({ title: 'Expert ajouté', icon: 'i-heroicons-check-circle', color: 'green' })
-    }
-    showExpertModal.value = false
+    await db.classes.addExpert(currentClass.value.id, selectedExpertId.value)
+    await loadClassExperts()
+    toast.add({ title: 'Expert ajouté à la classe', icon: 'i-heroicons-check-circle', color: 'green' })
+    showAddExpertModal.value = false
+    selectedExpertId.value = null
   } catch (err) {
     console.error(err)
-    toast.add({ title: 'Erreur lors de la sauvegarde', icon: 'i-heroicons-x-circle', color: 'red' })
+    toast.add({ title: 'Erreur lors de l\'ajout', icon: 'i-heroicons-x-circle', color: 'red' })
   } finally {
-    savingExpert.value = false
+    addingExpert.value = false
   }
 }
 
-const confirmDeleteExpert = ref<Expert | null>(null)
+const confirmRemoveExpert = ref<User | null>(null)
 
-async function deleteExpert(expert: Expert) {
-  confirmDeleteExpert.value = expert
+async function removeExpert(expert: User) {
+  confirmRemoveExpert.value = expert
 }
 
-async function confirmDelete() {
-  if (!confirmDeleteExpert.value) return
+async function confirmRemoveExpertFromClass() {
+  if (!confirmRemoveExpert.value || !currentClass.value) return
   try {
-    await db.experts.delete(confirmDeleteExpert.value.id)
-    experts.value = experts.value.filter(e => e.id !== confirmDeleteExpert.value!.id)
-    toast.add({ title: 'Expert supprimé', icon: 'i-heroicons-check-circle', color: 'green' })
+    await db.classes.removeExpert(currentClass.value.id, confirmRemoveExpert.value.id)
+    await loadClassExperts()
+    toast.add({ title: 'Expert retiré de la classe', icon: 'i-heroicons-check-circle', color: 'green' })
   } catch (err) {
     console.error(err)
-    toast.add({ title: 'Erreur lors de la suppression', icon: 'i-heroicons-x-circle', color: 'red' })
+    toast.add({ title: 'Erreur lors du retrait', icon: 'i-heroicons-x-circle', color: 'red' })
   } finally {
-    confirmDeleteExpert.value = null
+    confirmRemoveExpert.value = null
   }
 }
 
-// Formulaire settings éditables
+// Formulaire settings éditables (paramètres de la classe)
 const form = reactive({
   projectTemplate: '',
   githubOrg: '',
@@ -118,49 +93,46 @@ const durationOptions = [
 // Pour ajouter une position manuelle
 const newPausePosition = ref<number | null>(null)
 
-onMounted(async () => {
+// Charger les données de la classe
+watch(() => currentClass.value, async (cls) => {
+  if (!cls) return
+  loading.value = true
   try {
-    const [expertsData, settingsData] = await Promise.all([
-      db.experts.getAll(),
-      db.settings.getAll()
-    ])
-    experts.value = expertsData
-    settings.value = settingsData
-    form.projectTemplate = settingsData.project_template || ''
-    form.githubOrg = settingsData.github_org || ''
-    form.pauseInterval = parseInt(settingsData.pause_interval || '4', 10)
-    form.pauseDuration = parseInt(settingsData.pause_duration || '15', 10)
-    try {
-      const saved = JSON.parse(settingsData.pause_positions || '[]')
-      // Migration : ancien format (number[]) vers nouveau format (ManualPause[])
-      if (saved.length > 0 && typeof saved[0] === 'number') {
-        form.manualPauses = saved.map((pos: number) => ({ position: pos, duration: form.pauseDuration }))
-      } else {
-        form.manualPauses = saved
-      }
-    } catch {
-      form.manualPauses = []
+    // Charger les paramètres de la classe
+    form.projectTemplate = cls.projectTemplate || ''
+    form.githubOrg = cls.githubOrg || ''
+    form.pauseInterval = cls.pauseInterval
+    form.pauseDuration = cls.pauseDuration
+    form.manualPauses = cls.pausePositions || []
+
+    // Charger les experts de la classe
+    await loadClassExperts()
+
+    // Charger tous les experts (pour le modal d'ajout)
+    if (isTeacher.value) {
+      allExperts.value = (await db.users.getAll()).filter(u => u.role === 'expert')
     }
   } finally {
     loading.value = false
   }
-})
+}, { immediate: true })
 
 async function saveSettings() {
+  if (!currentClass.value || !isTeacher.value) return
+
   saving.value = true
   try {
-    await Promise.all([
-      db.settings.set('project_template', form.projectTemplate),
-      db.settings.set('github_org', form.githubOrg),
-      db.settings.set('pause_interval', String(form.pauseInterval)),
-      db.settings.set('pause_duration', String(form.pauseDuration)),
-      db.settings.set('pause_positions', JSON.stringify(form.manualPauses))
-    ])
-    settings.value.project_template = form.projectTemplate
-    settings.value.github_org = form.githubOrg
-    settings.value.pause_interval = String(form.pauseInterval)
-    settings.value.pause_duration = String(form.pauseDuration)
-    settings.value.pause_positions = JSON.stringify(form.manualPauses)
+    await db.classes.update(currentClass.value.id, {
+      projectTemplate: form.projectTemplate,
+      githubOrg: form.githubOrg,
+      pauseInterval: form.pauseInterval,
+      pauseDuration: form.pauseDuration,
+      pausePositions: form.manualPauses
+    })
+
+    // Recharger les classes dans le store
+    await authStore.loadClasses()
+
     toast.add({ title: 'Paramètres enregistrés', icon: 'i-heroicons-check-circle', color: 'green' })
   } finally {
     saving.value = false
@@ -202,24 +174,34 @@ const exampleDeployUrl = computed(() => {
   <div class="page">
     <header class="page-header">
       <h1 class="page-title">Paramètres</h1>
-      <p class="page-subtitle mono">Configuration de VueGrade</p>
+      <p class="page-subtitle mono">
+        {{ currentClass ? `Classe : ${currentClass.name} (${currentClass.year})` : 'Configuration de VueGrade' }}
+      </p>
     </header>
 
-    <div class="settings-grid">
-      <!-- Experts -->
+    <!-- Pas de classe sélectionnée -->
+    <div v-if="!currentClass" class="no-class-state">
+      <UIcon name="i-heroicons-academic-cap" class="empty-icon" />
+      <p>Sélectionnez une classe dans la barre latérale pour voir ses paramètres.</p>
+    </div>
+
+    <div v-else class="settings-grid">
+      <!-- Experts de la classe -->
       <section class="settings-section">
         <div class="section-header">
           <div>
             <h2 class="section-title">
               <UIcon name="i-heroicons-user-group" />
-              Experts
+              Experts de la classe
             </h2>
-            <p class="section-desc">Les experts participent à la notation orale. Leurs initiales sont utilisées dans les grilles de notation.</p>
+            <p class="section-desc">Les experts assignés à cette classe peuvent noter les passages oraux.</p>
           </div>
           <UButton
+            v-if="isTeacher"
             icon="i-heroicons-plus"
             size="sm"
-            @click="openAddExpert"
+            @click="showAddExpertModal = true"
+            :disabled="availableExperts.length === 0"
           >
             Ajouter
           </UButton>
@@ -229,106 +211,85 @@ const exampleDeployUrl = computed(() => {
           <UIcon name="i-heroicons-arrow-path" class="spin" />
         </div>
         <div v-else class="experts-list">
-          <div v-for="expert in experts" :key="expert.id" class="expert-row">
-            <div class="expert-avatar mono">{{ expert.initials }}</div>
+          <div v-for="expert in classExperts" :key="expert.id" class="expert-row">
+            <div class="expert-avatar mono">{{ expert.name.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() }}</div>
             <div class="expert-info">
               <span class="expert-name">{{ expert.name }}</span>
-              <span class="expert-role mono" :class="`role--${expert.role}`">{{ expert.role === 'teacher' ? 'enseignant' : 'expert' }}</span>
+              <span class="expert-email mono">{{ expert.email }}</span>
             </div>
-            <div class="expert-actions">
+            <div v-if="isTeacher" class="expert-actions">
               <UButton
-                icon="i-heroicons-pencil"
-                size="xs"
-                variant="ghost"
-                color="gray"
-                @click="openEditExpert(expert)"
-              />
-              <UButton
-                icon="i-heroicons-trash"
+                icon="i-heroicons-x-mark"
                 size="xs"
                 variant="ghost"
                 color="red"
-                @click="deleteExpert(expert)"
+                title="Retirer de la classe"
+                @click="removeExpert(expert)"
               />
             </div>
           </div>
-          <div v-if="experts.length === 0" class="empty-state">
-            Aucun expert configuré
+          <div v-if="classExperts.length === 0" class="empty-state">
+            Aucun expert assigné à cette classe
           </div>
         </div>
       </section>
 
-      <!-- Modal Expert -->
-      <UModal v-model="showExpertModal">
+      <!-- Modal ajout expert -->
+      <UModal v-model="showAddExpertModal">
         <UCard>
           <template #header>
             <div class="modal-header">
-              <h3>{{ editingExpert ? 'Modifier l\'expert' : 'Ajouter un expert' }}</h3>
+              <h3>Ajouter un expert à la classe</h3>
             </div>
           </template>
 
-          <div class="expert-form">
-            <UFormGroup label="Nom complet">
-              <UInput
-                v-model="expertForm.name"
-                placeholder="Jean Dupont"
-                icon="i-heroicons-user"
-              />
-            </UFormGroup>
-            <UFormGroup label="Initiales (3 lettres)">
-              <UInput
-                v-model="expertForm.initials"
-                placeholder="JDP"
-                maxlength="3"
-                class="initials-input"
-              />
-            </UFormGroup>
-            <UFormGroup label="Rôle">
-              <USelectMenu
-                v-model="expertForm.role"
-                :options="roleOptions"
-                value-attribute="value"
-                option-attribute="label"
-              />
-            </UFormGroup>
-          </div>
+          <UFormGroup label="Sélectionner un expert">
+            <USelectMenu
+              v-model="selectedExpertId"
+              :options="availableExperts.map(e => ({ label: e.name, value: e.id }))"
+              value-attribute="value"
+              option-attribute="label"
+              placeholder="Choisir un expert..."
+            />
+          </UFormGroup>
 
           <template #footer>
             <div class="modal-footer">
               <UButton
                 variant="ghost"
                 color="gray"
-                @click="showExpertModal = false"
+                @click="showAddExpertModal = false"
               >
                 Annuler
               </UButton>
               <UButton
-                :loading="savingExpert"
+                :loading="addingExpert"
+                :disabled="!selectedExpertId"
                 icon="i-heroicons-check"
-                @click="saveExpert"
+                @click="addExpertToClass"
               >
-                {{ editingExpert ? 'Enregistrer' : 'Ajouter' }}
+                Ajouter
               </UButton>
             </div>
           </template>
         </UCard>
       </UModal>
 
-      <!-- Modal confirmation suppression -->
-      <UModal v-model="confirmDeleteExpert" :model-value="!!confirmDeleteExpert" @update:model-value="confirmDeleteExpert = null">
+      <!-- Modal confirmation retrait expert -->
+      <UModal :model-value="!!confirmRemoveExpert" @update:model-value="confirmRemoveExpert = null">
         <UCard>
           <template #header>
             <div class="modal-header modal-header--danger">
               <UIcon name="i-heroicons-exclamation-triangle" />
-              <h3>Supprimer l'expert</h3>
+              <h3>Retirer l'expert</h3>
             </div>
           </template>
 
           <p>
-            Voulez-vous vraiment supprimer <strong>{{ confirmDeleteExpert?.name }}</strong> ({{ confirmDeleteExpert?.initials }}) ?
+            Voulez-vous vraiment retirer <strong>{{ confirmRemoveExpert?.name }}</strong> de cette classe ?
           </p>
           <p class="warning-text">
-            Cette action supprimera aussi toutes ses notes attribuées.
+            L'expert ne pourra plus noter les passages oraux de cette classe.
           </p>
 
           <template #footer>
@@ -336,24 +297,24 @@ const exampleDeployUrl = computed(() => {
               <UButton
                 variant="ghost"
                 color="gray"
-                @click="confirmDeleteExpert = null"
+                @click="confirmRemoveExpert = null"
               >
                 Annuler
               </UButton>
               <UButton
                 color="red"
-                icon="i-heroicons-trash"
-                @click="confirmDelete"
+                icon="i-heroicons-x-mark"
+                @click="confirmRemoveExpertFromClass"
               >
-                Supprimer
+                Retirer
               </UButton>
             </div>
           </template>
         </UCard>
       </UModal>
 
-      <!-- Projet config -->
-      <section class="settings-section">
+      <!-- Projet config (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
         <h2 class="section-title">
           <UIcon name="i-simple-icons-github" />
           Configuration projet
@@ -400,8 +361,8 @@ const exampleDeployUrl = computed(() => {
         </div>
       </section>
 
-      <!-- Pauses délibération -->
-      <section class="settings-section">
+      <!-- Pauses délibération (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
         <h2 class="section-title">
           <UIcon name="i-heroicons-pause" />
           Pauses de délibération
@@ -614,6 +575,29 @@ const exampleDeployUrl = computed(() => {
   text-align: center;
   color: var(--c-text-muted);
   font-size: 0.85rem;
+}
+
+.no-class-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  color: var(--c-text-muted);
+  text-align: center;
+  background: var(--c-bg-card);
+  border: 1px dashed var(--c-border);
+  border-radius: 12px;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.3;
+}
+
+.expert-email {
+  font-size: 0.75rem;
+  color: var(--c-text-muted);
 }
 
 /* Modal */

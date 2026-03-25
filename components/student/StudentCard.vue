@@ -6,6 +6,31 @@ const props = defineProps<{ student: Student }>()
 const initials = computed(() =>
   props.student.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 )
+
+// Live check
+const { checkLive, getStatus, cache } = useLiveCheck()
+
+const liveStatus = computed(() => {
+  if (!props.student.deployUrl) return null
+  return getStatus(props.student.deployUrl)
+})
+
+const isLive = computed(() => liveStatus.value?.live ?? false)
+const isChecking = computed(() => liveStatus.value?.checking ?? false)
+
+// Vérifier au montage si une URL de déploiement existe
+onMounted(() => {
+  if (props.student.deployUrl) {
+    checkLive(props.student.deployUrl)
+  }
+})
+
+// Re-vérifier si l'URL change
+watch(() => props.student.deployUrl, (newUrl) => {
+  if (newUrl) {
+    checkLive(newUrl)
+  }
+})
 </script>
 
 <template>
@@ -22,8 +47,21 @@ const initials = computed(() =>
         </span>
       </div>
       <div class="card-badges">
-        <span v-if="student.deployUrl" class="badge badge--live" title="Site déployé">
-          ● live
+        <!-- Badge Live avec vérification réelle -->
+        <span
+          v-if="student.deployUrl"
+          class="badge badge--live"
+          :class="{
+            'badge--live-active': isLive,
+            'badge--live-checking': isChecking,
+            'badge--live-offline': !isLive && !isChecking && liveStatus?.checkedAt
+          }"
+          :title="isLive ? 'Site en ligne' : isChecking ? 'Vérification...' : 'Site hors ligne'"
+        >
+          <span class="live-dot" :class="{ 'live-dot--pulse': isLive }"></span>
+          <span v-if="isChecking">...</span>
+          <span v-else-if="isLive">live</span>
+          <span v-else>offline</span>
         </span>
       </div>
     </div>
@@ -147,12 +185,65 @@ const initials = computed(() =>
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .badge--live {
+  color: var(--c-text-muted);
+  background: var(--c-bg-hover);
+  border: 1px solid var(--c-border);
+  transition: all 0.3s ease;
+}
+
+/* État: en ligne */
+.badge--live-active {
   color: var(--c-nuxt);
   background: color-mix(in srgb, var(--c-nuxt) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--c-nuxt) 25%, transparent);
+  border-color: color-mix(in srgb, var(--c-nuxt) 25%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--c-nuxt) 30%, transparent);
+}
+
+/* État: vérification en cours */
+.badge--live-checking {
+  color: var(--c-text-muted);
+  background: var(--c-bg-hover);
+  border-color: var(--c-border);
+}
+
+/* État: hors ligne */
+.badge--live-offline {
+  color: var(--c-error);
+  background: color-mix(in srgb, var(--c-error) 10%, transparent);
+  border-color: color-mix(in srgb, var(--c-error) 25%, transparent);
+}
+
+/* Point indicateur */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Animation pulse quand live */
+.live-dot--pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 var(--c-nuxt);
+}
+
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-nuxt) 70%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 4px 3px color-mix(in srgb, var(--c-nuxt) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-nuxt) 70%, transparent);
+  }
 }
 
 /* Description */

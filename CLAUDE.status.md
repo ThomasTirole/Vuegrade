@@ -7,7 +7,7 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 6
+**Session** : Session 8
 **Date** : 2026-03-25
 **Par** : Claude Code (Opus 4.5)
 
@@ -59,6 +59,11 @@
 ### Serveur
 - [x] `server/api/github/gitflow.get.ts` — route GitHub branches/commits
 - [x] `server/api/github/repo.get.ts` — route info repo ✨ Session 1
+- [x] `server/api/github/verify-token.post.ts` — vérification token chiffré ✨ Session 8
+- [x] `server/api/check-live.get.ts` — vérification HTTP site déployé ✨ Session 8
+
+### Composables
+- [x] `composables/useLiveCheck.ts` — vérification statut live avec cache ✨ Session 8
 
 ### Template élève
 - [x] `.github/workflows/deploy-student-template.yml` — GitHub Action déploiement élèves
@@ -73,6 +78,25 @@
 - [x] **CRUD Experts dans Settings** — ✅ fait Session 6
 - [x] **Supabase Realtime** — ✅ fait Session 6 (composable `useRealtimeGrades.ts`)
 - [ ] **Test end-to-end** — créer un élève, vérifier fiche, tester gitflow, notation
+- [x] **Inscription utilisateurs avec validation** : ✅ Session 7
+  - [x] Page d'inscription (`/register`) — formulaire nom, email, mot de passe, rôle
+  - [x] Champ `status` sur table `users` : `pending` | `active` | `rejected`
+  - [x] Les comptes `pending` ne peuvent pas se connecter
+  - [x] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
+  - [x] Page admin dans l'app pour valider les comptes en attente ✅ Session 8
+- [x] **Création de classe** : ✅ Session 7
+  - [x] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
+  - [x] Accessible uniquement aux teachers
+  - [x] La nouvelle classe apparaît dans le sélecteur de la sidebar
+- [x] **Badge "Live" amélioré** : ✅ Session 8
+  - [x] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
+  - [x] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
+  - [x] Cache des résultats (5 min) pour éviter de spammer les requêtes
+- [x] **GitHub API avec token utilisateur** : ✅ Session 8
+  - [x] Modifier `server/api/github/gitflow.get.ts` pour utiliser le token du user connecté (depuis BDD)
+  - [x] Modifier `server/api/github/repo.get.ts` idem
+  - [x] Si pas de token → continuer sans auth (repos publics, 60 req/h)
+  - [x] Si token présent → l'utiliser (repos privés, 5000 req/h)
 
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
@@ -85,14 +109,29 @@
 - [ ] **Mode présentation** — plein écran pour l'oral
 - [ ] **Toast notifications Realtime** — "FHE a noté Q1 : 5" quand un expert note
 
-### Multi-Tenancy (futur) 🟣
-- [ ] **Table `users`** — unifie profs + experts avec auth
-- [ ] **Table `classes`** — avec settings intégrés (org, template, pauses)
-- [ ] **Table `class_experts`** — liaison many-to-many
-- [ ] **Migration `class_id`** — sur students, questions, oral_sessions
-- [ ] **Sélecteur classe** — dropdown dans sidebar
-- [ ] **Auth login** — email/password simple
-- [ ] **Permissions par rôle** — teacher vs expert
+### Multi-Tenancy 🟣
+
+**Phase 2 : Tables** ✅
+- [x] Table `users` — unifie profs + experts avec auth + `github_token_encrypted`
+- [x] Table `classes` — avec settings intégrés (org, template, pauses)
+- [x] Table `class_experts` — liaison many-to-many
+
+**Phase 3 : Migration données** ✅
+- [x] Créer classe par défaut avec données actuelles
+- [x] Ajouter `class_id` sur students, questions, oral_sessions
+- [x] Migrer settings → colonnes de classes
+- [x] Migrer experts → users
+
+**Phase 4 : Auth & UI** ✅
+- [x] Auth login (email/password) — `pages/login.vue`
+- [x] Middleware auth — `middleware/auth.global.ts`
+- [x] Sélecteur classe dans sidebar
+- [x] Filtrage données par classe (stores)
+- [x] Permissions UI par rôle (teacher vs expert)
+- [x] Page profil prof (saisie token GitHub) — `pages/profile.vue`
+- [x] Chiffrement token GitHub (pgcrypto AES-256) ✨ Session 8
+
+> **Décision Config GitHub** : Tout en BDD, rien en `.env` — org dans `classes`, token chiffré dans `users` (voir ADR-004)
 
 ---
 
@@ -106,13 +145,14 @@
   GITHUB_TOKEN=ghp_...
   GITHUB_ORG=divtec-cejef
 
-Supabase (Session 2 + Session 4) :
+Supabase (Session 2 + Session 4 + Session 8) :
   ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades, student_questions
   ✅ Triggers updated_at configurés
   ✅ RLS activé avec politiques permissives (outil interne)
   ✅ Vue student_score_summary créée
   ✅ 3 experts seedés : TTI (teacher), FHE, KGE (experts)
   ✅ Table student_questions pour liaison élève ↔ questions théoriques (Session 4)
+  ✅ Fonctions pgcrypto pour chiffrement/déchiffrement token GitHub (Session 8)
 ```
 
 ---
@@ -141,12 +181,13 @@ Supabase (Session 2 + Session 4) :
 
 ---
 
-## 📊 Métriques actuelles
+## Métriques actuelles
 
 | Indicateur | Valeur |
 |---|---|
-| Fichiers créés | 30 |
-| Pages fonctionnelles | 6 (dashboard, fiche, new, edit, questions, settings) |
+| Fichiers créés | 40 |
+| Pages fonctionnelles | 10 (dashboard, fiche, new, edit, questions, settings, login, register, profile, admin) |
 | Composants créés | 6 |
-| Couverture TypeScript | ~85% |
+| Stores Pinia | 3 (students, questions, auth) |
+| Couverture TypeScript | ~90% |
 | Tests | Aucun |

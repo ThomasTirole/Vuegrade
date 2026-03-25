@@ -1,20 +1,254 @@
-// composables/useSupabase.ts
-// Wrapper autour du client Supabase avec helpers typés
+// composables/useDB.ts
+// Wrapper autour du client Supabase avec helpers typés (Multi-Tenancy)
 
-import type { Student, Question, OralSession, OralGrade, Expert } from '~/types'
+import type { Student, Question, OralSession, OralGrade, Expert, User, Class } from '~/types'
 
 export const useDB = () => {
   const supabase = useSupabaseClient()
 
   // ----------------------------------------------------------
+  // USERS
+  // ----------------------------------------------------------
+  const users = {
+    async getAll(): Promise<User[]> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('role')
+        .order('name')
+      if (error) throw error
+      return data.map(mapUser)
+    },
+
+    async getById(id: string): Promise<User> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return mapUser(data)
+    },
+
+    async getByEmail(email: string): Promise<User | null> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle()
+      if (error) throw error
+      return data ? mapUser(data) : null
+    },
+
+    async create(payload: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+      const { data, error } = await supabase
+        .from('users')
+        .insert(toSnake(payload))
+        .select()
+        .single()
+      if (error) throw error
+      return mapUser(data)
+    },
+
+    async update(id: string, payload: Partial<User>): Promise<User> {
+      const { data, error } = await supabase
+        .from('users')
+        .update(toSnake(payload))
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return mapUser(data)
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase.from('users').delete().eq('id', id)
+      if (error) throw error
+    },
+
+    /** Inscription d'un nouvel utilisateur (status = pending par défaut) */
+    async register(payload: {
+      name: string
+      email: string
+      password: string
+      role: User['role']
+    }): Promise<User> {
+      // Hash simple du mot de passe (en prod, utiliser bcrypt côté serveur)
+      // Pour l'instant on stocke en clair car outil interne
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          name: payload.name,
+          email: payload.email,
+          password_hash: payload.password, // TODO: hasher avec bcrypt
+          role: payload.role,
+          status: 'pending'
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return mapUser(data)
+    },
+
+    /** Vérifie les identifiants de connexion */
+    async verifyCredentials(email: string, password: string): Promise<User | null> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+
+      // Vérification simple du mot de passe (TODO: bcrypt)
+      // Pour l'instant on accepte si password_hash match ou si pas de hash (anciens comptes)
+      if (data.password_hash && data.password_hash !== password) {
+        return null
+      }
+
+      return mapUser(data)
+    },
+
+    /** Sauvegarde un token GitHub chiffré via RPC */
+    async saveGithubToken(userId: string, plainToken: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('save_github_token', {
+        target_user_id: userId,
+        plain_token: plainToken
+      })
+      if (error) throw error
+      return data as boolean
+    },
+
+    /** Vérifie si un token GitHub existe pour un utilisateur */
+    async hasGithubToken(userId: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('has_github_token', {
+        target_user_id: userId
+      })
+      if (error) throw error
+      return data as boolean
+    },
+
+    /** Supprime le token GitHub d'un utilisateur */
+    async deleteGithubToken(userId: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('delete_github_token', {
+        target_user_id: userId
+      })
+      if (error) throw error
+      return data as boolean
+    }
+  }
+
+  // ----------------------------------------------------------
+  // CLASSES
+  // ----------------------------------------------------------
+  const classes = {
+    async getAll(): Promise<Class[]> {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('name')
+      if (error) throw error
+      return data.map(mapClass)
+    },
+
+    async getById(id: string): Promise<Class> {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return mapClass(data)
+    },
+
+    async getByTeacher(teacherId: string): Promise<Class[]> {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .order('year', { ascending: false })
+      if (error) throw error
+      return data.map(mapClass)
+    },
+
+    async getForExpert(userId: string): Promise<Class[]> {
+      const { data, error } = await supabase
+        .from('class_experts')
+        .select('class_id, classes(*)')
+        .eq('user_id', userId)
+      if (error) throw error
+      return data.map(d => mapClass((d as any).classes))
+    },
+
+    async create(payload: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>): Promise<Class> {
+      const { data, error } = await supabase
+        .from('classes')
+        .insert(toSnake(payload))
+        .select()
+        .single()
+      if (error) throw error
+      return mapClass(data)
+    },
+
+    async update(id: string, payload: Partial<Class>): Promise<Class> {
+      const { data, error } = await supabase
+        .from('classes')
+        .update(toSnake(payload))
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return mapClass(data)
+    },
+
+    async delete(id: string): Promise<void> {
+      const { error } = await supabase.from('classes').delete().eq('id', id)
+      if (error) throw error
+    },
+
+    // Gestion des experts d'une classe
+    async getExperts(classId: string): Promise<User[]> {
+      const { data, error } = await supabase
+        .from('class_experts')
+        .select('user_id, users(*)')
+        .eq('class_id', classId)
+      if (error) throw error
+      return data.map(d => mapUser((d as any).users))
+    },
+
+    async addExpert(classId: string, userId: string): Promise<void> {
+      const { error } = await supabase
+        .from('class_experts')
+        .insert({ class_id: classId, user_id: userId })
+      if (error) throw error
+    },
+
+    async removeExpert(classId: string, userId: string): Promise<void> {
+      const { error } = await supabase
+        .from('class_experts')
+        .delete()
+        .eq('class_id', classId)
+        .eq('user_id', userId)
+      if (error) throw error
+    }
+  }
+
+  // ----------------------------------------------------------
   // STUDENTS
   // ----------------------------------------------------------
   const students = {
-    async getAll(): Promise<Student[]> {
-      const { data, error } = await supabase
+    async getAll(classId?: string): Promise<Student[]> {
+      let query = supabase
         .from('students')
         .select('*')
         .order('passage_order', { ascending: true, nullsFirst: false })
+
+      if (classId) {
+        query = query.eq('class_id', classId)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data.map(mapStudent)
     },
@@ -60,7 +294,6 @@ export const useDB = () => {
   // QUESTIONS
   // ----------------------------------------------------------
   const questions = {
-    /** Récupère toutes les questions + les questions spécifiques à un élève */
     async getForStudent(studentId: string): Promise<Question[]> {
       const { data, error } = await supabase
         .from('questions')
@@ -72,13 +305,19 @@ export const useDB = () => {
       return data.map(mapQuestion)
     },
 
-    async getPool(): Promise<Question[]> {
-      const { data, error } = await supabase
+    async getPool(classId?: string): Promise<Question[]> {
+      let query = supabase
         .from('questions')
         .select('*')
         .is('student_id', null)
         .order('type')
         .order('ref')
+
+      if (classId) {
+        query = query.eq('class_id', classId)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data.map(mapQuestion)
     },
@@ -109,7 +348,6 @@ export const useDB = () => {
       if (error) throw error
     },
 
-    /** Récupère les questions pratiques spécifiques à un élève */
     async getPracticalForStudent(studentId: string): Promise<Question[]> {
       const { data, error } = await supabase
         .from('questions')
@@ -121,30 +359,39 @@ export const useDB = () => {
       return data.map(mapQuestion)
     },
 
-    /** Récupère uniquement les questions théoriques du pool (sans student_id) */
-    async getTheoreticalPool(): Promise<Question[]> {
-      const { data, error } = await supabase
+    async getTheoreticalPool(classId?: string): Promise<Question[]> {
+      let query = supabase
         .from('questions')
         .select('*')
         .is('student_id', null)
         .eq('type', 'theoretical')
         .order('ref', { ascending: true })
+
+      if (classId) {
+        query = query.eq('class_id', classId)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data.map(mapQuestion)
     },
 
-    /** Calcule le prochain numéro T-X disponible pour une question théorique */
-    async getNextTheoreticalRef(): Promise<number> {
-      const { data, error } = await supabase
+    async getNextTheoreticalRef(classId?: string): Promise<number> {
+      let query = supabase
         .from('questions')
         .select('ref')
         .is('student_id', null)
         .eq('type', 'theoretical')
         .not('ref', 'is', null)
         .not('ref', 'eq', '')
+
+      if (classId) {
+        query = query.eq('class_id', classId)
+      }
+
+      const { data, error } = await query
       if (error) throw error
 
-      // Extraire les numéros existants (T-1, T-2, etc.)
       const numbers = data
         .map(q => {
           const match = q.ref?.match(/^T-(\d+)$/)
@@ -152,16 +399,10 @@ export const useDB = () => {
         })
         .filter(n => n > 0)
 
-      // Retourner le max + 1, ou 1 si aucune question
       return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
     },
 
-    /** Récupère les questions attribuées à un élève pour l'oral :
-     *  - Théoriques via student_questions (avec leur ref T-X original)
-     *  - Pratiques directement liées (student_id = élève)
-     */
     async getAssignedForStudent(studentId: string): Promise<Question[]> {
-      // 1. Récupérer les IDs des questions théoriques attribuées
       const { data: assignedData, error: assignedError } = await supabase
         .from('student_questions')
         .select('question_id')
@@ -171,7 +412,6 @@ export const useDB = () => {
 
       const assignedIds = assignedData.map(a => a.question_id)
 
-      // 2. Récupérer les questions pratiques de l'élève
       const { data: practicalData, error: practicalError } = await supabase
         .from('questions')
         .select('*')
@@ -180,7 +420,6 @@ export const useDB = () => {
 
       if (practicalError) throw practicalError
 
-      // 3. Récupérer les questions théoriques attribuées
       let theoreticalQuestions: Question[] = []
       if (assignedIds.length > 0) {
         const { data: theoreticalData, error: theoreticalError } = await supabase
@@ -192,7 +431,6 @@ export const useDB = () => {
         theoreticalQuestions = theoreticalData.map(mapQuestion)
       }
 
-      // 4. Combiner et retourner
       const practicalQuestions = practicalData.map(mapQuestion)
       return [...theoreticalQuestions, ...practicalQuestions]
     }
@@ -212,10 +450,17 @@ export const useDB = () => {
       return data ? mapSession(data) : null
     },
 
-    async createSession(studentId: string, questionIds: string[]): Promise<OralSession> {
+    async createSession(studentId: string, questionIds: string[], classId?: string): Promise<OralSession> {
+      const insert: Record<string, unknown> = {
+        student_id: studentId,
+        question_ids: questionIds,
+        status: 'pending'
+      }
+      if (classId) insert.class_id = classId
+
       const { data, error } = await supabase
         .from('oral_sessions')
-        .insert({ student_id: studentId, question_ids: questionIds, status: 'pending' })
+        .insert(insert)
         .select()
         .single()
       if (error) throw error
@@ -264,10 +509,9 @@ export const useDB = () => {
   }
 
   // ----------------------------------------------------------
-  // STUDENT QUESTIONS (liaison élève <-> questions théoriques du pool)
+  // STUDENT QUESTIONS
   // ----------------------------------------------------------
   const studentQuestions = {
-    /** Récupère les questions théoriques attribuées à un élève (avec position) */
     async getForStudent(studentId: string): Promise<{ questionId: string; position: number }[]> {
       const { data, error } = await supabase
         .from('student_questions')
@@ -278,7 +522,6 @@ export const useDB = () => {
       return data.map(d => ({ questionId: d.question_id, position: d.position }))
     },
 
-    /** Attribue une question du pool à un élève */
     async assign(studentId: string, questionId: string, position: number): Promise<void> {
       const { error } = await supabase
         .from('student_questions')
@@ -286,7 +529,6 @@ export const useDB = () => {
       if (error) throw error
     },
 
-    /** Retire une question attribuée à un élève */
     async unassign(studentId: string, questionId: string): Promise<void> {
       const { error } = await supabase
         .from('student_questions')
@@ -296,7 +538,6 @@ export const useDB = () => {
       if (error) throw error
     },
 
-    /** Met à jour la position d'une question attribuée */
     async updatePosition(studentId: string, questionId: string, position: number): Promise<void> {
       const { error } = await supabase
         .from('student_questions')
@@ -306,9 +547,7 @@ export const useDB = () => {
       if (error) throw error
     },
 
-    /** Réordonne toutes les questions d'un élève */
     async reorder(studentId: string, questionIds: string[]): Promise<void> {
-      // Supprime puis réinsère dans le bon ordre
       const { error: deleteError } = await supabase
         .from('student_questions')
         .delete()
@@ -330,7 +569,7 @@ export const useDB = () => {
   }
 
   // ----------------------------------------------------------
-  // EXPERTS
+  // EXPERTS (legacy - pour compatibilité)
   // ----------------------------------------------------------
   const experts = {
     async getAll(): Promise<Expert[]> {
@@ -385,7 +624,7 @@ export const useDB = () => {
   }
 
   // ----------------------------------------------------------
-  // SETTINGS
+  // SETTINGS (legacy - settings maintenant dans classes)
   // ----------------------------------------------------------
   const settings = {
     async getAll(): Promise<Record<string, string>> {
@@ -412,15 +651,45 @@ export const useDB = () => {
     }
   }
 
-  return { students, questions, studentQuestions, oral, experts, settings }
+  return { users, classes, students, questions, studentQuestions, oral, experts, settings }
 }
 
 // ----------------------------------------------------------
 // Mappers snake_case → camelCase
 // ----------------------------------------------------------
+function mapUser(d: Record<string, unknown>): User {
+  return {
+    id: d.id as string,
+    name: d.name as string,
+    email: d.email as string,
+    role: d.role as User['role'],
+    status: (d.status as User['status']) || 'pending',
+    githubTokenEncrypted: d.github_token_encrypted as string | undefined,
+    createdAt: d.created_at as string,
+    updatedAt: d.updated_at as string,
+  }
+}
+
+function mapClass(d: Record<string, unknown>): Class {
+  return {
+    id: d.id as string,
+    teacherId: d.teacher_id as string,
+    name: d.name as string,
+    year: d.year as number,
+    githubOrg: d.github_org as string | undefined,
+    projectTemplate: d.project_template as string | undefined,
+    pauseInterval: d.pause_interval as number,
+    pauseDuration: d.pause_duration as number,
+    pausePositions: d.pause_positions as { position: number; duration: number }[],
+    createdAt: d.created_at as string,
+    updatedAt: d.updated_at as string,
+  }
+}
+
 function mapStudent(d: Record<string, unknown>): Student {
   return {
     id: d.id as string,
+    classId: d.class_id as string | undefined,
     name: d.name as string,
     githubUsername: d.github_username as string,
     repoUrl: d.repo_url as string,
@@ -439,6 +708,7 @@ function mapStudent(d: Record<string, unknown>): Student {
 function mapQuestion(d: Record<string, unknown>): Question {
   return {
     id: d.id as string,
+    classId: d.class_id as string | undefined,
     type: d.type as Question['type'],
     ref: d.ref as string,
     title: d.title as string,
@@ -460,6 +730,7 @@ function mapSession(d: Record<string, unknown>): OralSession {
     : []
   return {
     id: d.id as string,
+    classId: d.class_id as string | undefined,
     studentId: d.student_id as string,
     questionIds: d.question_ids as string[],
     grades,

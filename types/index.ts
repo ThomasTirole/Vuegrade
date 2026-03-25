@@ -1,6 +1,66 @@
 // ============================================================
-// TYPES DOMAINE — VueGrade M294
+// TYPES DOMAINE — VueGrade M294 (Multi-Tenancy)
 // ============================================================
+
+// ------------------------------------------------------------
+// Users (profs + experts unifiés)
+// ------------------------------------------------------------
+
+export type UserRole = 'teacher' | 'expert'
+export type UserStatus = 'pending' | 'active' | 'rejected'
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  /** Statut du compte : pending (en attente), active (validé), rejected (refusé) */
+  status: UserStatus
+  /** Token GitHub chiffré (uniquement pour teachers) */
+  githubTokenEncrypted?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ------------------------------------------------------------
+// Classes
+// ------------------------------------------------------------
+
+export interface Class {
+  id: string
+  teacherId: string
+  name: string
+  year: number
+  githubOrg?: string
+  projectTemplate?: string
+  pauseInterval: number
+  pauseDuration: number
+  pausePositions: { position: number; duration: number }[]
+  createdAt: string
+  updatedAt: string
+}
+
+// ------------------------------------------------------------
+// ClassExpert (liaison many-to-many)
+// ------------------------------------------------------------
+
+export interface ClassExpert {
+  classId: string
+  userId: string
+  createdAt: string
+}
+
+// ------------------------------------------------------------
+// Expert (legacy - pour compatibilité pendant migration)
+// ------------------------------------------------------------
+
+export interface Expert {
+  id: string
+  name: string
+  /** Initiales ex: KGE, FHE, TTI */
+  initials: string
+  role: 'teacher' | 'expert'
+}
 
 // ------------------------------------------------------------
 // Élève & Projet
@@ -8,6 +68,7 @@
 
 export interface Student {
   id: string
+  classId?: string
   name: string
   githubUsername: string
   /** URL du repo GitHub (calculée ou saisie manuellement) */
@@ -37,6 +98,7 @@ export type QuestionType = 'theoretical' | 'practical'
 
 export interface Question {
   id: string
+  classId?: string
   type: QuestionType
   /** Référence courte ex: T-1, P-4 — générée dynamiquement à l'attribution */
   ref?: string
@@ -102,20 +164,13 @@ export function questionFinalScore(grades: OralGrade[], questionId: string): num
   return calculateFinalScore(scores)
 }
 
-export interface Expert {
-  id: string
-  name: string
-  /** Initiales ex: KGE, FHE, TTI */
-  initials: string
-  role: 'teacher' | 'expert'
-}
-
 // ------------------------------------------------------------
 // Session d'oral
 // ------------------------------------------------------------
 
 export interface OralSession {
   id: string
+  classId?: string
   studentId: string
   /** Questions sélectionnées pour cet élève */
   questionIds: string[]

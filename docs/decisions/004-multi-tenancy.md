@@ -211,6 +211,63 @@ Garder deux tables distinctes pour profs et experts.
 
 ---
 
+## Configuration GitHub
+
+### Décision
+
+**Tout en BDD, rien en `.env`** — Le prof configure son organisation et son token GitHub dans les Settings.
+
+### Pourquoi ?
+
+| Approche | Verdict |
+|----------|---------|
+| Variables `.env` | ❌ Pas flexible (1 seul prof, 1 seule org) |
+| Config par prof en BDD | ✅ **Retenu** — Multi-profs, multi-orgs |
+
+### Ce qui change
+
+| Paramètre | Avant (v1.0) | Après (multi-tenancy) |
+|-----------|--------------|----------------------|
+| `GITHUB_ORG` | `.env` + `settings` table | `classes.github_org` |
+| `GITHUB_TOKEN` | `.env` uniquement | `users.github_token_encrypted` |
+
+### Variables `.env` après migration
+
+```env
+# Supabase uniquement (infrastructure)
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+
+# Plus de GITHUB_* — tout est en BDD !
+```
+
+### Implémentation
+
+```sql
+-- Token chiffré dans la table users
+ALTER TABLE users ADD COLUMN github_token_encrypted TEXT;
+
+-- Org dans la table classes (déjà prévu)
+-- classes.github_org TEXT
+```
+
+### Flux pour le prof
+
+1. Crée un PAT sur GitHub (Settings → Developer settings → Personal access tokens)
+2. Va dans **VueGrade → Profil** et saisit son token
+3. Le token est chiffré (pgcrypto ou Supabase Vault) avant stockage
+4. Côté serveur, déchiffré uniquement pour les appels API GitHub
+
+### Sécurité
+
+- Token **jamais exposé** côté client
+- Stockage **chiffré** en BDD
+- Utilisé uniquement dans les routes serveur (`server/api/github/*`)
+- Scope minimal requis : `repo:read` (lecture des repos de l'org)
+
+---
+
 ## Références
 
 - ADR-001 : Stack technique

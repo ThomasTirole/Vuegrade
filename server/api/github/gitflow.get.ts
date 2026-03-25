@@ -1,24 +1,50 @@
 // server/api/github/gitflow.get.ts
 // Route serveur : récupère branches + commits d'un repo GitHub
-// Le token GitHub reste ici, côté serveur uniquement
+// Utilise le token GitHub de l'utilisateur connecté (chiffré en BDD)
 
 import type { GitflowData, GitCommit, GitBranch } from '~/types'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const query = getQuery(event)
-  const { owner, repo } = query as { owner: string; repo: string }
+  const { owner, repo, userId } = query as { owner: string; repo: string; userId?: string }
 
   if (!owner || !repo) {
     throw createError({ statusCode: 400, message: 'owner et repo sont requis' })
+  }
+
+  // Récupérer le token GitHub de l'utilisateur depuis la BDD
+  let githubToken: string | null = null
+
+  if (userId) {
+    try {
+      const supabase = createClient(
+        config.public.supabaseUrl as string,
+        config.supabaseServiceKey as string
+      )
+
+      const { data: token, error } = await supabase.rpc('get_decrypted_github_token', {
+        user_id: userId
+      })
+
+      if (!error && token) {
+        githubToken = token
+      }
+    } catch (err) {
+      // Silencieux : on continue sans token
+      console.warn('Impossible de récupérer le token GitHub:', err)
+    }
   }
 
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
   }
-  if (config.githubToken) {
-    headers['Authorization'] = `Bearer ${config.githubToken}`
+
+  // Utiliser le token de l'utilisateur s'il existe
+  if (githubToken) {
+    headers['Authorization'] = `Bearer ${githubToken}`
   }
 
   const baseUrl = `https://api.github.com/repos/${owner}/${repo}`
