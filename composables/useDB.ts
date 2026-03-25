@@ -107,6 +107,34 @@ export const useDB = () => {
       }
 
       return mapUser(data)
+    },
+
+    /** Sauvegarde un token GitHub chiffré via RPC */
+    async saveGithubToken(userId: string, plainToken: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('save_github_token', {
+        target_user_id: userId,
+        plain_token: plainToken
+      })
+      if (error) throw error
+      return data as boolean
+    },
+
+    /** Vérifie si un token GitHub existe pour un utilisateur */
+    async hasGithubToken(userId: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('has_github_token', {
+        target_user_id: userId
+      })
+      if (error) throw error
+      return data as boolean
+    },
+
+    /** Supprime le token GitHub d'un utilisateur */
+    async deleteGithubToken(userId: string): Promise<boolean> {
+      const { data, error } = await supabase.rpc('delete_github_token', {
+        target_user_id: userId
+      })
+      if (error) throw error
+      return data as boolean
     }
   }
 

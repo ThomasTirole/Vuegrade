@@ -209,6 +209,17 @@ async function createClass() {
           <span>Paramètres</span>
         </NuxtLink>
 
+        <!-- Admin (restricted) -->
+        <NuxtLink
+          v-if="authStore.user?.email === 'thomas.tirole@divtec.ch'"
+          to="/admin/users"
+          class="nav-item"
+          active-class="nav-item--active"
+        >
+          <UIcon name="i-heroicons-shield-check" />
+          <span>Administration</span>
+        </NuxtLink>
+
         <!-- User info -->
         <div v-if="authStore.user" class="user-info">
           <NuxtLink to="/profile" class="user-badge" :class="{ 'user-badge--teacher': authStore.isTeacher }">

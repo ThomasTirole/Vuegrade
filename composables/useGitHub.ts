@@ -4,27 +4,40 @@
 import type { GitflowData, GitCommit, GitBranch } from '~/types'
 
 export const useGitHub = () => {
+  // Récupère automatiquement l'utilisateur connecté pour son token
+  const authStore = useAuthStore()
 
   /**
    * Récupère les données gitflow d'un repo via notre API server-side
-   * (le token GitHub ne sort jamais côté client)
+   * Utilise le token GitHub de l'utilisateur connecté s'il existe (5000 req/h)
+   * Sinon, requêtes anonymes (60 req/h, repos publics uniquement)
    */
   async function getGitflow(repoUrl: string): Promise<GitflowData> {
     const { owner, repo } = parseRepoUrl(repoUrl)
-    const data = await $fetch<GitflowData>(`/api/github/gitflow`, {
-      query: { owner, repo }
-    })
+
+    // Passer l'userId pour que le serveur récupère son token
+    const query: Record<string, string> = { owner, repo }
+    if (authStore.user?.id) {
+      query.userId = authStore.user.id
+    }
+
+    const data = await $fetch<GitflowData>(`/api/github/gitflow`, { query })
     return data
   }
 
   /**
    * Récupère les infos de base d'un repo
+   * Utilise le token GitHub de l'utilisateur connecté s'il existe
    */
   async function getRepoInfo(repoUrl: string) {
     const { owner, repo } = parseRepoUrl(repoUrl)
-    return await $fetch(`/api/github/repo`, {
-      query: { owner, repo }
-    })
+
+    const query: Record<string, string> = { owner, repo }
+    if (authStore.user?.id) {
+      query.userId = authStore.user.id
+    }
+
+    return await $fetch(`/api/github/repo`, { query })
   }
 
   return { getGitflow, getRepoInfo }

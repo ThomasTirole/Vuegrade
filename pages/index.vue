@@ -3,8 +3,21 @@ import { calculateFinalScore } from '~/types'
 
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const { checkMultiple } = useLiveCheck()
 
 onMounted(() => studentsStore.fetchAll())
+
+// Pré-charger les statuts "live" quand les élèves sont chargés
+watch(students, (list) => {
+  const deployUrls = list
+    .map(s => s.deployUrl)
+    .filter((url): url is string => Boolean(url))
+
+  if (deployUrls.length > 0) {
+    // Vérifier tous les sites en parallèle (avec cache)
+    checkMultiple(deployUrls)
+  }
+}, { immediate: true })
 
 // Stats globales
 const stats = computed(() => {

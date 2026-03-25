@@ -7,7 +7,7 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 7
+**Session** : Session 8
 **Date** : 2026-03-25
 **Par** : Claude Code (Opus 4.5)
 
@@ -59,6 +59,11 @@
 ### Serveur
 - [x] `server/api/github/gitflow.get.ts` — route GitHub branches/commits
 - [x] `server/api/github/repo.get.ts` — route info repo ✨ Session 1
+- [x] `server/api/github/verify-token.post.ts` — vérification token chiffré ✨ Session 8
+- [x] `server/api/check-live.get.ts` — vérification HTTP site déployé ✨ Session 8
+
+### Composables
+- [x] `composables/useLiveCheck.ts` — vérification statut live avec cache ✨ Session 8
 
 ### Template élève
 - [x] `.github/workflows/deploy-student-template.yml` — GitHub Action déploiement élèves
@@ -78,19 +83,20 @@
   - [x] Champ `status` sur table `users` : `pending` | `active` | `rejected`
   - [x] Les comptes `pending` ne peuvent pas se connecter
   - [x] Validation manuelle via Supabase Dashboard (passer `status` à `active`)
-  - [ ] (Futur) Page admin dans l'app pour valider les comptes en attente
+  - [x] Page admin dans l'app pour valider les comptes en attente ✅ Session 8
 - [x] **Création de classe** : ✅ Session 7
   - [x] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
   - [x] Accessible uniquement aux teachers
   - [x] La nouvelle classe apparaît dans le sélecteur de la sidebar
-- [ ] **Badge "Live" amélioré** :
-  - [ ] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
-  - [ ] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
-  - [ ] Cache des résultats pour éviter de spammer les requêtes
-- [ ] **GitHub API avec token utilisateur** :
-  - [ ] Modifier `server/api/github/gitflow.get.ts` pour utiliser le token du user connecté (depuis BDD)
-  - [ ] Si pas de token → continuer sans auth (repos publics, 60 req/h)
-  - [ ] Si token présent → l'utiliser (repos privés, 5000 req/h)
+- [x] **Badge "Live" amélioré** : ✅ Session 8
+  - [x] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
+  - [x] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
+  - [x] Cache des résultats (5 min) pour éviter de spammer les requêtes
+- [x] **GitHub API avec token utilisateur** : ✅ Session 8
+  - [x] Modifier `server/api/github/gitflow.get.ts` pour utiliser le token du user connecté (depuis BDD)
+  - [x] Modifier `server/api/github/repo.get.ts` idem
+  - [x] Si pas de token → continuer sans auth (repos publics, 60 req/h)
+  - [x] Si token présent → l'utiliser (repos privés, 5000 req/h)
 
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
@@ -123,7 +129,7 @@
 - [x] Filtrage données par classe (stores)
 - [x] Permissions UI par rôle (teacher vs expert)
 - [x] Page profil prof (saisie token GitHub) — `pages/profile.vue`
-- [ ] Chiffrement token GitHub (pgcrypto ou Vault)
+- [x] Chiffrement token GitHub (pgcrypto AES-256) ✨ Session 8
 
 > **Décision Config GitHub** : Tout en BDD, rien en `.env` — org dans `classes`, token chiffré dans `users` (voir ADR-004)
 
@@ -139,13 +145,14 @@
   GITHUB_TOKEN=ghp_...
   GITHUB_ORG=divtec-cejef
 
-Supabase (Session 2 + Session 4) :
+Supabase (Session 2 + Session 4 + Session 8) :
   ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades, student_questions
   ✅ Triggers updated_at configurés
   ✅ RLS activé avec politiques permissives (outil interne)
   ✅ Vue student_score_summary créée
   ✅ 3 experts seedés : TTI (teacher), FHE, KGE (experts)
   ✅ Table student_questions pour liaison élève ↔ questions théoriques (Session 4)
+  ✅ Fonctions pgcrypto pour chiffrement/déchiffrement token GitHub (Session 8)
 ```
 
 ---
@@ -178,8 +185,8 @@ Supabase (Session 2 + Session 4) :
 
 | Indicateur | Valeur |
 |---|---|
-| Fichiers créés | 35 |
-| Pages fonctionnelles | 7 (dashboard, fiche, new, edit, questions, settings, login) |
+| Fichiers créés | 40 |
+| Pages fonctionnelles | 10 (dashboard, fiche, new, edit, questions, settings, login, register, profile, admin) |
 | Composants créés | 6 |
 | Stores Pinia | 3 (students, questions, auth) |
 | Couverture TypeScript | ~90% |

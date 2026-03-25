@@ -25,11 +25,14 @@ const verifyingToken = ref(false)
 const tokenValid = ref<boolean | null>(null)
 const tokenScopes = ref<string[]>([])
 
-onMounted(() => {
-  // Si un token existe, afficher des étoiles
-  if (user.value?.githubTokenEncrypted) {
-    githubToken.value = '••••••••••••••••••••••••••••••••••••••••'
-    tokenSaved.value = true
+onMounted(async () => {
+  // Vérifier si un token existe via RPC (sans révéler le token)
+  if (user.value) {
+    const hasToken = await db.users.hasGithubToken(user.value.id)
+    if (hasToken) {
+      githubToken.value = '••••••••••••••••••••••••••••••••••••••••'
+      tokenSaved.value = true
+    }
   }
 })
 
@@ -41,18 +44,14 @@ async function saveToken() {
 
   savingToken.value = true
   try {
-    await db.users.update(user.value!.id, {
-      githubTokenEncrypted: githubToken.value.trim()
-    })
-
-    // Mettre à jour le user dans le store
-    authStore.user!.githubTokenEncrypted = githubToken.value.trim()
+    // Sauvegarder via RPC (chiffrement côté serveur)
+    await db.users.saveGithubToken(user.value!.id, githubToken.value.trim())
 
     tokenSaved.value = true
     githubToken.value = '••••••••••••••••••••••••••••••••••••••••'
     showToken.value = false
 
-    toast.add({ title: 'Token GitHub enregistré', color: 'green', icon: 'i-heroicons-check-circle' })
+    toast.add({ title: 'Token GitHub chiffré et enregistré', color: 'green', icon: 'i-heroicons-check-circle' })
   } catch (err) {
     console.error(err)
     toast.add({ title: 'Erreur lors de l\'enregistrement', color: 'red', icon: 'i-heroicons-x-circle' })
@@ -62,9 +61,40 @@ async function saveToken() {
 }
 
 async function verifyToken() {
-  const token = githubToken.value.includes('••••')
-    ? user.value?.githubTokenEncrypted
-    : githubToken.value.trim()
+  // La vérification ne peut se faire que sur un token en clair (non chiffré)
+  // Si le token est déjà sauvegardé, on doit utiliser l'API serveur
+  if (githubToken.value.includes('••••')) {
+    // Token déjà sauvegardé → vérifier via API serveur
+    verifyingToken.value = true
+    tokenValid.value = null
+
+    try {
+      const response = await $fetch('/api/github/verify-token', {
+        method: 'POST',
+        body: { userId: user.value!.id }
+      })
+
+      if (response.valid) {
+        tokenValid.value = true
+        tokenScopes.value = response.scopes || []
+        toast.add({ title: 'Token valide', color: 'green', icon: 'i-heroicons-check-circle' })
+      } else {
+        tokenValid.value = false
+        tokenScopes.value = []
+        toast.add({ title: 'Token invalide ou expiré', color: 'red', icon: 'i-heroicons-x-circle' })
+      }
+    } catch (err) {
+      console.error(err)
+      tokenValid.value = false
+      toast.add({ title: 'Erreur de vérification', color: 'red', icon: 'i-heroicons-x-circle' })
+    } finally {
+      verifyingToken.value = false
+    }
+    return
+  }
+
+  // Token en clair → vérifier directement
+  const token = githubToken.value.trim()
 
   if (!token) {
     toast.add({ title: 'Aucun token à vérifier', color: 'red', icon: 'i-heroicons-exclamation-triangle' })
@@ -84,7 +114,6 @@ async function verifyToken() {
 
     if (response.ok) {
       tokenValid.value = true
-      // Récupérer les scopes depuis les headers
       const scopes = response.headers.get('X-OAuth-Scopes')
       tokenScopes.value = scopes ? scopes.split(', ') : []
       toast.add({ title: 'Token valide', color: 'green', icon: 'i-heroicons-check-circle' })
@@ -102,7 +131,18 @@ async function verifyToken() {
   }
 }
 
-function clearToken() {
+async function clearToken() {
+  if (tokenSaved.value && user.value) {
+    // Supprimer le token de la BDD
+    try {
+      await db.users.deleteGithubToken(user.value.id)
+      toast.add({ title: 'Token supprimé', color: 'green', icon: 'i-heroicons-check-circle' })
+    } catch (err) {
+      console.error(err)
+      toast.add({ title: 'Erreur lors de la suppression', color: 'red', icon: 'i-heroicons-x-circle' })
+      return
+    }
+  }
   githubToken.value = ''
   tokenSaved.value = false
   tokenValid.value = null
@@ -193,8 +233,8 @@ function editToken() {
 
           <!-- Note sécurité -->
           <p class="token-security-note">
-            <UIcon name="i-heroicons-lock-closed" />
-            Votre token est stocké de manière sécurisée en base de données et n'est jamais exposé côté client.
+            <UIcon name="i-heroicons-shield-check" />
+            Votre token est chiffré (AES-256) en base de données et n'est jamais exposé côté client.
           </p>
 
           <!-- Actions -->
@@ -214,6 +254,14 @@ function editToken() {
                 @click="verifyToken"
               >
                 Vérifier
+              </UButton>
+              <UButton
+                variant="ghost"
+                color="red"
+                icon="i-heroicons-trash"
+                @click="clearToken"
+              >
+                Supprimer
               </UButton>
             </template>
             <template v-else>
