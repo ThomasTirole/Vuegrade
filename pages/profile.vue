@@ -233,11 +233,38 @@ function editToken() {
           </div>
         </div>
 
-        <!-- Info scopes requis -->
-        <div class="token-hint">
-          <UIcon name="i-heroicons-information-circle" />
-          <span>Scopes requis : <code>repo</code> (lecture des repos privés)</span>
-        </div>
+        <!-- Accordion : Comment générer son token -->
+        <UAccordion
+          :items="[{
+            label: 'Comment générer son token GitHub ?',
+            icon: 'i-heroicons-question-mark-circle',
+            slot: 'howto'
+          }]"
+          class="token-accordion"
+        >
+          <template #howto>
+            <div class="howto-content">
+              <ol class="howto-steps">
+                <li>
+                  Aller sur
+                  <a href="https://github.com/settings/tokens" target="_blank" class="link">
+                    github.com/settings/tokens
+                    <UIcon name="i-heroicons-arrow-top-right-on-square" />
+                  </a>
+                </li>
+                <li>Cliquer sur <strong>"Generate new token"</strong> puis <strong>"Generate new token (classic)"</strong></li>
+                <li>Donner un nom au token (ex: "VueGrade")</li>
+                <li>Sélectionner uniquement le scope <code>read:org</code></li>
+                <li>Cliquer sur <strong>"Generate token"</strong></li>
+                <li>Copier le token et le coller ci-dessus</li>
+              </ol>
+              <div class="howto-warning">
+                <UIcon name="i-heroicons-exclamation-triangle" />
+                <span>Le token ne sera affiché qu'une seule fois sur GitHub. Conservez-le précieusement.</span>
+              </div>
+            </div>
+          </template>
+        </UAccordion>
       </section>
     </div>
   </div>
@@ -434,6 +461,51 @@ function editToken() {
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   color: var(--c-nuxt);
+}
+
+/* Accordion */
+.token-accordion {
+  margin-top: 1rem;
+}
+
+.howto-content {
+  padding: 0.5rem 0;
+}
+
+.howto-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--c-text-soft);
+}
+
+.howto-steps li {
+  line-height: 1.5;
+}
+
+.howto-steps code {
+  background: var(--c-bg-hover);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: var(--c-nuxt);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.howto-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-warn) 30%, transparent);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--c-warn);
 }
 
 .mono {
