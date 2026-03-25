@@ -211,10 +211,10 @@ async function createClass() {
 
         <!-- User info -->
         <div v-if="authStore.user" class="user-info">
-          <div class="user-badge" :class="{ 'user-badge--teacher': authStore.isTeacher }">
+          <NuxtLink to="/profile" class="user-badge" :class="{ 'user-badge--teacher': authStore.isTeacher }">
             <UIcon :name="authStore.isTeacher ? 'i-heroicons-academic-cap' : 'i-heroicons-user'" />
             <span class="user-name">{{ authStore.user.name }}</span>
-          </div>
+          </NuxtLink>
           <button class="logout-btn" title="Se déconnecter" @click="handleLogout">
             <UIcon name="i-heroicons-arrow-right-on-rectangle" />
           </button>
@@ -437,6 +437,12 @@ async function createClass() {
   gap: 0.5rem;
   font-size: 0.8rem;
   color: var(--c-text-soft);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.user-badge:hover {
+  color: var(--c-text);
 }
 
 .user-badge--teacher {
