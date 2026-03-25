@@ -83,6 +83,10 @@
   - [ ] UI pour créer une nouvelle classe (nom, année, org GitHub, template)
   - [ ] Accessible uniquement aux teachers
   - [ ] La nouvelle classe apparaît dans le sélecteur de la sidebar
+- [ ] **Badge "Live" amélioré** :
+  - [ ] Vérification réelle HTTP (HEAD request via API serveur) pour confirmer que le site répond
+  - [ ] Animation pulse/glow vert clignotant autour du point pour effet "live" visuel
+  - [ ] Cache des résultats pour éviter de spammer les requêtes
 
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
