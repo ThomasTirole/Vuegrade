@@ -14,6 +14,8 @@ export interface User {
   name: string
   email: string
   role: UserRole
+  /** Initiales pour identification rapide (ex: TTI, FHE, KGE) */
+  initials?: string
   /** Statut du compte : pending (en attente), active (validé), rejected (refusé) */
   status: UserStatus
   /** Token GitHub chiffré (uniquement pour teachers) */
