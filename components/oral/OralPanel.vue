@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { calculateFinalScore, SCORE_LABELS } from '~/types'
-import type { Question, OralSession, Expert, OralGrade } from '~/types'
+import type { Question, OralSession, OralGrade, User } from '~/types'
 
 const props = defineProps<{ studentId: string }>()
 
 const db = useDB()
+const authStore = useAuthStore()
 
 const session = ref<OralSession | null>(null)
 const questions = ref<Question[]>([])
-const experts = ref<Expert[]>([])
+const evaluators = ref<User[]>([]) // Teacher + experts de la classe
 const loading = ref(true)
 const saving = ref<string | null>(null) // questionId en cours de sauvegarde
 
-// Quel expert suis-je ? (stocké en localStorage pour persistance de session)
+// Quel évaluateur suis-je ? (stocké en localStorage pour persistance de session)
 const currentExpertId = ref<string | null>(
   typeof window !== 'undefined' ? localStorage.getItem('vugrade_expert') : null
 )
@@ -28,14 +29,21 @@ useRealtimeGrades(studentIdRef, session, grades)
 
 onMounted(async () => {
   try {
-    const [qs, ex, sess] = await Promise.all([
+    // Récupère le classId depuis le store auth
+    const classId = authStore.selectedClassId
+
+    const [qs, sess] = await Promise.all([
       // Utilise getAssignedForStudent pour n'avoir que les questions attribuées
       db.questions.getAssignedForStudent(props.studentId),
-      db.experts.getAll(),
       db.oral.getSessionByStudent(props.studentId),
     ])
+
+    // Charge les évaluateurs de la classe (teacher + experts)
+    if (classId) {
+      evaluators.value = await db.classes.getEvaluators(classId)
+    }
+
     questions.value = qs
-    experts.value = ex
     session.value = sess
     // Initialise les grades depuis la session
     grades.value = sess?.grades ?? []
@@ -58,12 +66,12 @@ function getScore(questionId: string, expertId: string): number | null {
   return grade?.score ?? null
 }
 
-// Note finale pour une question (moyenne des experts)
+// Note finale pour une question (moyenne des évaluateurs)
 function getQuestionFinal(questionId: string): number | null {
-  const expertScores = experts.value
+  const scores = evaluators.value
     .map(e => getScore(questionId, e.id))
     .filter((s): s is number => s !== null)
-  return calculateFinalScore(expertScores)
+  return calculateFinalScore(scores)
 }
 
 // Score global de l'élève
@@ -141,19 +149,19 @@ function getDisplayRef(question: Question, index: number): string {
 <template>
   <div class="oral-panel">
 
-    <!-- Sélection expert -->
+    <!-- Sélection évaluateur (teacher + experts) -->
     <div class="expert-selector">
       <span class="section-label">Je suis :</span>
       <div class="expert-list">
         <button
-          v-for="expert in experts"
-          :key="expert.id"
+          v-for="evaluator in evaluators"
+          :key="evaluator.id"
           class="expert-btn"
-          :class="{ 'expert-btn--active': currentExpertId === expert.id }"
-          @click="selectExpert(expert.id)"
+          :class="{ 'expert-btn--active': currentExpertId === evaluator.id }"
+          @click="selectExpert(evaluator.id)"
         >
-          <span class="expert-initials">{{ expert.initials }}</span>
-          <span class="expert-name">{{ expert.name }}</span>
+          <span class="expert-initials">{{ evaluator.initials || evaluator.name.substring(0, 3).toUpperCase() }}</span>
+          <span class="expert-name">{{ evaluator.name }}</span>
         </button>
       </div>
     </div>
@@ -216,7 +224,7 @@ function getDisplayRef(question: Question, index: number): string {
           :key="q.id"
           :question="q"
           :display-ref="getDisplayRef(q, idx)"
-          :experts="experts"
+          :evaluators="evaluators"
           :session="session"
           :grades="grades"
           :current-expert-id="currentExpertId"
@@ -236,7 +244,7 @@ function getDisplayRef(question: Question, index: number): string {
           :key="q.id"
           :question="q"
           :display-ref="getDisplayRef(q, idx)"
-          :experts="experts"
+          :evaluators="evaluators"
           :session="session"
           :grades="grades"
           :current-expert-id="currentExpertId"

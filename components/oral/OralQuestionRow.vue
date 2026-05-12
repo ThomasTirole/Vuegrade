@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { SCORE_LABELS } from '~/types'
-import type { Question, OralSession, Expert, OralGrade } from '~/types'
+import type { Question, OralSession, User, OralGrade } from '~/types'
 
 const props = defineProps<{
   question: Question
   displayRef: string // Ref à afficher (T-X pour théoriques, P-X calculé pour pratiques)
-  experts: Expert[]
+  evaluators: User[] // Teacher + experts de la classe
   session: OralSession
   grades: OralGrade[] // Grades en temps réel
   currentExpertId: string | null
@@ -27,13 +27,13 @@ function getExpertScore(expertId: string): number | null {
   return grade?.score ?? null
 }
 
-// Note finale (moyenne des experts)
+// Note finale (moyenne des évaluateurs)
 const finalScore = computed(() => {
-  const expertScores = props.experts
+  const scores = props.evaluators
     .map(e => getExpertScore(e.id))
     .filter((s): s is number => s !== null)
-  if (expertScores.length === 0) return null
-  const avg = expertScores.reduce((a, b) => a + b, 0) / expertScores.length
+  if (scores.length === 0) return null
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
   return Math.round(avg * 2) / 2
 })
 
@@ -51,21 +51,21 @@ const currentExpertScore = computed(() => {
       <span class="q-ref mono">{{ displayRef }}</span>
       <span class="q-title">{{ question.title }}</span>
 
-      <!-- Scores par expert -->
+      <!-- Scores par évaluateur -->
       <div class="expert-scores">
         <div
-          v-for="expert in experts"
-          :key="expert.id"
+          v-for="evaluator in evaluators"
+          :key="evaluator.id"
           class="expert-score"
-          :title="expert.name"
+          :title="evaluator.name"
         >
-          <span class="expert-init mono">{{ expert.initials }}</span>
+          <span class="expert-init mono">{{ evaluator.initials || evaluator.name.substring(0, 3).toUpperCase() }}</span>
           <span
-            v-if="getExpertScore(expert.id) !== null"
+            v-if="getExpertScore(evaluator.id) !== null"
             class="score-dot"
-            :class="`score-dot--${getExpertScore(expert.id)}`"
+            :class="`score-dot--${getExpertScore(evaluator.id)}`"
           >
-            {{ getExpertScore(expert.id) }}
+            {{ getExpertScore(evaluator.id) }}
           </span>
           <span v-else class="score-dot score-dot--empty">—</span>
         </div>

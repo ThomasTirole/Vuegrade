@@ -10,7 +10,12 @@
       "Bash(git tag:*)",
       "Bash(git pull:*)",
       "mcp__supabase__execute_sql",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__list_extensions",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)",
+      "mcp__supabase__list_tables",
+      "Bash(git rebase:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
