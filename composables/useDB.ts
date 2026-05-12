@@ -231,6 +231,42 @@ export const useDB = () => {
         .eq('class_id', classId)
         .eq('user_id', userId)
       if (error) throw error
+    },
+
+    /** Récupère tous les évaluateurs d'une classe (teacher + experts assignés) */
+    async getEvaluators(classId: string): Promise<User[]> {
+      // 1. Récupérer la classe pour avoir le teacher_id
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('teacher_id')
+        .eq('id', classId)
+        .single()
+      if (classError) throw classError
+
+      // 2. Récupérer les experts assignés à la classe
+      const { data: expertsData, error: expertsError } = await supabase
+        .from('class_experts')
+        .select('user_id, users(*)')
+        .eq('class_id', classId)
+      if (expertsError) throw expertsError
+
+      const experts = expertsData.map(d => mapUser((d as any).users))
+
+      // 3. Récupérer le teacher
+      if (classData.teacher_id) {
+        const { data: teacherData, error: teacherError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', classData.teacher_id)
+          .single()
+        if (teacherError) throw teacherError
+
+        const teacher = mapUser(teacherData)
+        // Teacher en premier, puis les experts
+        return [teacher, ...experts]
+      }
+
+      return experts
     }
   }
 
@@ -663,6 +699,7 @@ function mapUser(d: Record<string, unknown>): User {
     name: d.name as string,
     email: d.email as string,
     role: d.role as User['role'],
+    initials: d.initials as string | undefined,
     status: (d.status as User['status']) || 'pending',
     githubTokenEncrypted: d.github_token_encrypted as string | undefined,
     createdAt: d.created_at as string,
