@@ -156,6 +156,7 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
   ✅ Table student_questions pour liaison élève ↔ questions théoriques (Session 4)
   ✅ Fonctions pgcrypto pour chiffrement/déchiffrement token GitHub (Session 8)
   ✅ Colonne `initials` sur table `users` pour identification rapide (Session 9)
+  ✅ FK `oral_grades.expert_id` → `users` au lieu de `experts` (Session 9)
 ```
 
 ---
@@ -181,6 +182,7 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
 | # | Description | Statut |
 |---|---|---|
 | 8 | Enseignant absent du sélecteur "Je suis :" dans l'oral | ✅ Corrigé (getEvaluators) |
+| 9 | Erreur 409 FK quand enseignant note (expert_id → experts) | ✅ Corrigé (FK → users) |
 
 ## 🐛 Bugs restants
 
