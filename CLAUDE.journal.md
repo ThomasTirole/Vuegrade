@@ -6,6 +6,66 @@
 > - Inclure : ce qui a été fait, décisions prises, problèmes rencontrés, ce qui reste
 > - Ne JAMAIS supprimer les entrées précédentes
 > - Placer la nouvelle entrée EN HAUT du fichier (ordre antéchronologique)
+> - **IMPORTANT** : Toujours créer la branche `feature/*` ou `fix/*` AVANT de commencer à coder
+
+---
+
+## Session 9 — 2026-05-12
+
+### Objectif de la session
+Corriger le bug où l'enseignant n'apparaissait pas dans le sélecteur "Je suis :" de la page oral.
+
+### Réalisé
+
+- **Migration Supabase** : `add_initials_to_users`
+  - Ajout colonne `initials` à la table `users`
+  - Auto-génération des initiales depuis le nom pour les utilisateurs existants
+  - Copie des initiales depuis la table legacy `experts` pour les utilisateurs migrés
+
+- **Modification types** (`types/index.ts`)
+  - Ajout `initials?: string` dans l'interface `User`
+
+- **Modification useDB** (`composables/useDB.ts`)
+  - Mapping `initials` dans `mapUser()`
+  - Nouvelle méthode `classes.getEvaluators(classId)` : retourne teacher + experts assignés
+
+- **Modification OralPanel** (`components/oral/OralPanel.vue`)
+  - Utilise `evaluators` (User[]) au lieu de `experts` (Expert[])
+  - Charge via `db.classes.getEvaluators(classId)` depuis le store auth
+  - Fallback initiales auto si non définies
+
+- **Modification OralQuestionRow** (`components/oral/OralQuestionRow.vue`)
+  - Prop renommée `evaluators` au lieu de `experts`
+  - Affichage initiales avec fallback
+
+- **Synchronisation Git**
+  - `develop` synchronisé avec `main` (22 commits multi-tenancy)
+  - Feature branch `feature/fix-teacher-in-evaluators` créée, mergée, supprimée
+  - Push sur `main` et `develop`
+
+### Décisions techniques
+- Les évaluateurs = teacher de la classe + experts assignés via `class_experts`
+- Teacher apparaît en premier dans la liste
+- Initiales générées automatiquement si non définies (3 premières lettres du nom)
+
+### Workflow Git rappelé
+```
+main (prod)
+  └── develop (intégration)
+        └── feature/* ou fix/* (travail en cours)
+```
+**Règle** : Toujours créer la branche feature/fix AVANT de commencer à coder.
+
+### Prochaines étapes
+- [ ] Test end-to-end du fix
+- [ ] Import CSV élèves
+- [ ] Export notes
+
+---
+
+## Session 8 — 2026-03-25
+
+(voir entrée précédente dans le journal)
 
 ---
 
