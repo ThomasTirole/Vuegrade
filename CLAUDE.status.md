@@ -7,8 +7,8 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 8
-**Date** : 2026-03-25
+**Session** : Session 9
+**Date** : 2026-05-12
 **Par** : Claude Code (Opus 4.5)
 
 ---
@@ -26,7 +26,9 @@
 
 ### Base de données
 - [x] `supabase/schema.sql` — schéma complet (tables, triggers, RLS, vue, seed experts)
-- [x] **Migrations Supabase appliquées** — 8 migrations via MCP ✨ Session 2
+- [x] **Migrations Supabase appliquées** — 9 migrations via MCP
+  - Session 2 : 8 migrations initiales
+  - Session 9 : `add_initials_to_users` (colonne initiales pour évaluateurs)
 
 ### Composables & Stores
 - [x] `composables/useDB.ts` — helpers Supabase typés (CRUD students, questions, oral, experts complet, studentQuestions)
@@ -145,7 +147,7 @@
   GITHUB_TOKEN=ghp_...
   GITHUB_ORG=divtec-cejef
 
-Supabase (Session 2 + Session 4 + Session 8) :
+Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
   ✅ Tables créées : experts, students, questions, oral_sessions, oral_grades, student_questions
   ✅ Triggers updated_at configurés
   ✅ RLS activé avec politiques permissives (outil interne)
@@ -153,6 +155,7 @@ Supabase (Session 2 + Session 4 + Session 8) :
   ✅ 3 experts seedés : TTI (teacher), FHE, KGE (experts)
   ✅ Table student_questions pour liaison élève ↔ questions théoriques (Session 4)
   ✅ Fonctions pgcrypto pour chiffrement/déchiffrement token GitHub (Session 8)
+  ✅ Colonne `initials` sur table `users` pour identification rapide (Session 9)
 ```
 
 ---
@@ -172,6 +175,12 @@ Supabase (Session 2 + Session 4 + Session 8) :
 | 5 | Page edit student ne fonctionne pas | ✅ Corrigé (données api_name) |
 | 6 | Questions théoriques non visibles dans le pool | ✅ Corrigé (préfixe Ui) |
 | 7 | Page liste élèves manquante | ✅ Créée |
+
+## 🐛 Bugs corrigés Session 9
+
+| # | Description | Statut |
+|---|---|---|
+| 8 | Enseignant absent du sélecteur "Je suis :" dans l'oral | ✅ Corrigé (getEvaluators) |
 
 ## 🐛 Bugs restants
 
