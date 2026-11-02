@@ -76,6 +76,8 @@ async function confirmRemoveExpertFromClass() {
 
 // Formulaire settings éditables (paramètres de la classe)
 const form = reactive({
+  theoreticalCount: 3,
+  practicalCount: 3,
   pauseInterval: 4,
   pauseDuration: 15,
   manualPauses: [] as ManualPause[]
@@ -97,6 +99,8 @@ watch(() => currentClass.value, async (cls) => {
   loading.value = true
   try {
     // Charger les paramètres de la classe
+    form.theoreticalCount = cls.theoreticalCount
+    form.practicalCount = cls.practicalCount
     form.pauseInterval = cls.pauseInterval
     form.pauseDuration = cls.pauseDuration
     form.manualPauses = cls.pausePositions || []
@@ -119,6 +123,8 @@ async function saveSettings() {
   saving.value = true
   try {
     await db.classes.update(currentClass.value.id, {
+      theoreticalCount: form.theoreticalCount,
+      practicalCount: form.practicalCount,
       pauseInterval: form.pauseInterval,
       pauseDuration: form.pauseDuration,
       pausePositions: form.manualPauses
@@ -295,6 +301,32 @@ function updatePauseDuration(pause: ManualPause, duration: number) {
           </template>
         </UCard>
       </UModal>
+
+      <!-- Composition de l'oral (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-queue-list" />
+          Composition de l'oral
+        </h2>
+        <p class="section-desc">
+          Nombre de questions par élève. Le tirage aléatoire complète les questions théoriques jusqu'à ce nombre.
+        </p>
+
+        <div class="form-grid">
+          <UFormGroup label="Questions théoriques par élève">
+            <UInput v-model.number="form.theoreticalCount" type="number" :min="0" :max="20" icon="i-heroicons-academic-cap" />
+          </UFormGroup>
+          <UFormGroup label="Questions pratiques par élève">
+            <UInput v-model.number="form.practicalCount" type="number" :min="0" :max="20" icon="i-heroicons-code-bracket" />
+          </UFormGroup>
+        </div>
+
+        <div class="form-actions">
+          <UButton @click="saveSettings" :loading="saving" icon="i-heroicons-check" size="sm">
+            Enregistrer
+          </UButton>
+        </div>
+      </section>
 
       <!-- Pauses délibération (enseignant uniquement) -->
       <section v-if="isTeacher" class="settings-section">

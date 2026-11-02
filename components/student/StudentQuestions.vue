@@ -60,7 +60,34 @@ function getRef(type: 'T' | 'P', index: number): string {
   return `${type}-${index + 1}`
 }
 
+// Nombres de questions visés (paramètres de la classe)
+const theoreticalTarget = computed(() => authStore.selectedClass?.theoreticalCount ?? 3)
+const practicalTarget = computed(() => authStore.selectedClass?.practicalCount ?? 3)
+
 // --- THÉORIQUES ---
+const { drawForStudent } = useQuestionDraw()
+const drawing = ref(false)
+
+/** Complète les questions théoriques par tirage aléatoire dans le pool de la classe */
+async function drawTheoretical() {
+  const classId = authStore.selectedClassId
+  if (!classId) return
+  drawing.value = true
+  try {
+    const added = await drawForStudent(props.studentId, classId, theoreticalTarget.value)
+    toast.add(added.length > 0
+      ? { title: `${added.length} question(s) tirée(s)`, description: added.map(q => q.title).join(' · '), icon: 'i-heroicons-sparkles', color: 'green' }
+      : { title: 'Aucune question ajoutée', description: 'Nombre atteint ou pool épuisé.', icon: 'i-heroicons-information-circle', color: 'gray' }
+    )
+    await loadQuestions()
+  } catch (err) {
+    console.error('[StudentQuestions] Erreur tirage:', err)
+    toast.add({ title: 'Erreur lors du tirage', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    drawing.value = false
+  }
+}
+
 async function onSelectTheoretical(question: Question) {
   const newPosition = assignedPositions.value.length + 1
   await db.studentQuestions.assign(props.studentId, question.id, newPosition)
@@ -183,16 +210,28 @@ async function deletePractical(q: Question) {
           <div class="section-title-row">
             <span class="section-badge section-badge--theory">T</span>
             <h3 class="section-title">Questions théoriques</h3>
-            <span class="section-count mono">{{ theoreticalQuestions.length }}</span>
+            <span class="section-count mono">{{ theoreticalQuestions.length }} / {{ theoreticalTarget }}</span>
           </div>
-          <UButton
-            icon="i-heroicons-plus"
-            size="xs"
-            variant="outline"
-            @click="showSelector = true"
-          >
-            Ajouter
-          </UButton>
+          <div class="section-actions">
+            <UButton
+              icon="i-heroicons-sparkles"
+              size="xs"
+              variant="soft"
+              :loading="drawing"
+              :disabled="theoreticalQuestions.length >= theoreticalTarget"
+              @click="drawTheoretical"
+            >
+              Tirage aléatoire
+            </UButton>
+            <UButton
+              icon="i-heroicons-plus"
+              size="xs"
+              variant="outline"
+              @click="showSelector = true"
+            >
+              Ajouter
+            </UButton>
+          </div>
         </div>
 
         <div v-if="theoreticalQuestions.length === 0" class="empty-section">
@@ -248,7 +287,7 @@ async function deletePractical(q: Question) {
           <div class="section-title-row">
             <span class="section-badge section-badge--practical">P</span>
             <h3 class="section-title">Questions pratiques</h3>
-            <span class="section-count mono">{{ practicalQuestions.length }}</span>
+            <span class="section-count mono">{{ practicalQuestions.length }} / {{ practicalTarget }}</span>
           </div>
           <UButton
             icon="i-heroicons-plus"
@@ -389,6 +428,8 @@ async function deletePractical(q: Question) {
   border-radius: 4px;
   color: var(--c-text-muted);
 }
+
+.section-actions { display: flex; gap: 0.5rem; }
 
 .empty-section {
   display: flex; flex-direction: column; align-items: center;

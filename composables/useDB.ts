@@ -577,6 +577,16 @@ export const useDB = () => {
       return data.map(d => ({ questionId: d.question_id, position: d.position }))
     },
 
+    /** Toutes les attributions des élèves d'une classe (pour éviter les doublons au tirage) */
+    async getForClass(classId: string): Promise<{ studentId: string; questionId: string; position: number }[]> {
+      const { data, error } = await supabase
+        .from('student_questions')
+        .select('student_id, question_id, position, students!inner(class_id)')
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return data.map(d => ({ studentId: d.student_id, questionId: d.question_id, position: d.position }))
+    },
+
     async assign(studentId: string, questionId: string, position: number): Promise<void> {
       const { error } = await supabase
         .from('student_questions')
@@ -737,6 +747,8 @@ function mapClass(d: Record<string, unknown>): Class {
     pauseInterval: d.pause_interval as number,
     pauseDuration: d.pause_duration as number,
     pausePositions: d.pause_positions as { position: number; duration: number }[],
+    theoreticalCount: (d.theoretical_count as number) ?? 3,
+    practicalCount: (d.practical_count as number) ?? 3,
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }
