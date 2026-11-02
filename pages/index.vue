@@ -3,6 +3,7 @@ import { calculateFinalScore } from '~/types'
 
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const authStore = useAuthStore()
 const { checkMultiple } = useLiveCheck()
 
 onMounted(() => studentsStore.fetchAll())
@@ -39,7 +40,7 @@ const stats = computed(() => {
           </h1>
           <p class="page-subtitle">Projets Vue.js — Module 294 · Évaluation orale</p>
         </div>
-        <div class="header-actions">
+        <div class="header-actions" v-if="authStore.isTeacher">
           <UButton
             to="/students/new"
             icon="i-heroicons-plus"
@@ -80,7 +81,7 @@ const stats = computed(() => {
       <div v-if="students.length === 0" class="empty-state">
         <UIcon name="i-heroicons-user-group" class="empty-icon" />
         <p>Aucun élève pour le moment</p>
-        <UButton to="/students/new" size="sm" variant="outline">
+        <UButton v-if="authStore.isTeacher" to="/students/new" size="sm" variant="outline">
           Ajouter le premier élève
         </UButton>
       </div>
