@@ -51,7 +51,7 @@ export const useQuestionsStore = defineStore('questions', () => {
   async function addQuestion(payload: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) {
     // Auto-générer ref T-X pour les questions théoriques du pool
     if (payload.type === 'theoretical' && !payload.studentId) {
-      const nextNum = await db.questions.getNextTheoreticalRef()
+      const nextNum = await db.questions.getNextTheoreticalRef(authStore.selectedClassId ?? undefined)
       payload.ref = `T-${nextNum}`
     }
 

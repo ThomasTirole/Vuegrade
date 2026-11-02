@@ -4,7 +4,8 @@
 // - 'theoretical' : questions du pool (pas de ref, pas de studentId)
 // - 'practical' : questions pratiques pour un élève (studentId requis)
 
-import type { Question } from '~/types'
+import { DIFFICULTY_LABELS } from '~/types'
+import type { Question, QuestionDifficulty } from '~/types'
 
 const props = defineProps<{
   question: Question | null
@@ -29,7 +30,10 @@ const form = reactive({
   codeSnippet: props.question?.codeSnippet ?? '',
   codeLanguage: props.question?.codeLanguage ?? 'vue',
   tags: props.question?.tags?.join(', ') ?? '',
+  difficulty: (props.question?.difficulty ?? '') as QuestionDifficulty | '',
 })
+
+const difficultyOptions = Object.entries(DIFFICULTY_LABELS) as [QuestionDifficulty, string][]
 
 function submit() {
   const payload = {
@@ -42,6 +46,7 @@ function submit() {
     codeSnippet: form.codeSnippet.trim() || undefined,
     codeLanguage: form.codeLanguage,
     tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+    difficulty: form.difficulty || null,
     studentId: isTheoretical.value ? null : (props.studentId ?? null),
   }
 
@@ -129,6 +134,31 @@ const modalTitle = computed(() => {
                 placeholder="// Coller le code de référence ici…"
                 rows="6"
               />
+            </div>
+          </div>
+
+          <!-- Difficulté -->
+          <div class="form-field">
+            <label class="field-label">Difficulté <span class="muted">(facultatif)</span></label>
+            <div class="difficulty-picker">
+              <button
+                type="button"
+                class="difficulty-option"
+                :class="{ 'difficulty-option--active': form.difficulty === '' }"
+                @click="form.difficulty = ''"
+              >
+                Non définie
+              </button>
+              <button
+                v-for="[value, label] in difficultyOptions"
+                :key="value"
+                type="button"
+                class="difficulty-option"
+                :class="[`difficulty-option--${value}`, { 'difficulty-option--active': form.difficulty === value }]"
+                @click="form.difficulty = value"
+              >
+                {{ label }}
+              </button>
             </div>
           </div>
 
@@ -242,6 +272,29 @@ const modalTitle = computed(() => {
   width: fit-content; background: var(--c-bg); border: 1px solid var(--c-border);
   border-radius: 6px; padding: 0.3rem 0.6rem;
   color: var(--c-text-muted); font-size: 0.75rem; outline: none;
+}
+
+/* Difficulté */
+.difficulty-picker { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.difficulty-option {
+  padding: 0.3rem 0.75rem; border-radius: 20px;
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  color: var(--c-text-muted); font-size: 0.78rem; cursor: pointer;
+  transition: all 0.12s;
+}
+.difficulty-option:hover { color: var(--c-text); }
+.difficulty-option--active { color: var(--c-text); border-color: var(--c-text-muted); }
+.difficulty-option--easy.difficulty-option--active {
+  color: var(--c-vue); border-color: var(--c-vue);
+  background: color-mix(in srgb, var(--c-vue) 10%, transparent);
+}
+.difficulty-option--medium.difficulty-option--active {
+  color: var(--c-warn); border-color: var(--c-warn);
+  background: color-mix(in srgb, var(--c-warn) 10%, transparent);
+}
+.difficulty-option--hard.difficulty-option--active {
+  color: var(--c-error); border-color: var(--c-error);
+  background: color-mix(in srgb, var(--c-error) 10%, transparent);
 }
 
 .modal-footer {

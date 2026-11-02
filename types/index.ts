@@ -97,6 +97,13 @@ export interface Student {
 // ------------------------------------------------------------
 
 export type QuestionType = 'theoretical' | 'practical'
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
+
+export const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
+  easy: 'Facile',
+  medium: 'Moyenne',
+  hard: 'Difficile',
+}
 
 export interface Question {
   id: string
@@ -117,6 +124,8 @@ export interface Question {
   /** Questions associées à un élève spécifique (null = pool commun) */
   studentId?: string | null
   tags?: string[]
+  /** Niveau de difficulté (facultatif) */
+  difficulty?: QuestionDifficulty | null
   createdAt: string
   updatedAt: string
 }

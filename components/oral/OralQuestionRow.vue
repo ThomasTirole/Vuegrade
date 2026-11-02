@@ -50,6 +50,7 @@ const currentExpertScore = computed(() => {
     <div class="row-header" @click="expanded = !expanded">
       <span class="q-ref mono">{{ displayRef }}</span>
       <span class="q-title">{{ question.title }}</span>
+      <UiDifficultyBadge :difficulty="question.difficulty" />
 
       <!-- Scores par évaluateur -->
       <div class="expert-scores">

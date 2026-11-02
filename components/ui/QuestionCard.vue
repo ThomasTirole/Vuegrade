@@ -15,6 +15,7 @@ const expanded = ref(false)
         {{ question.ref }}
       </span>
       <span class="q-title">{{ question.title }}</span>
+      <UiDifficultyBadge :difficulty="question.difficulty" />
       <div class="q-actions" @click.stop>
         <button class="action-btn" @click="$emit('edit')" title="Modifier">
           <UIcon name="i-heroicons-pencil" />
