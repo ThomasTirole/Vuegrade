@@ -14,13 +14,15 @@ const emit = defineEmits<{
 }>()
 
 const db = useDB()
+const authStore = useAuthStore()
 const loading = ref(true)
 const poolQuestions = ref<Question[]>([])
 const searchQuery = ref('')
 
 onMounted(async () => {
   try {
-    poolQuestions.value = await db.questions.getTheoreticalPool()
+    // Uniquement le pool de la classe sélectionnée
+    poolQuestions.value = await db.questions.getTheoreticalPool(authStore.selectedClassId ?? undefined)
   } finally {
     loading.value = false
   }
@@ -88,7 +90,7 @@ function selectQuestion(q: Question) {
               @click="selectQuestion(q)"
             >
               <div class="question-content">
-                <span class="question-title">{{ q.title }}</span>
+                <span class="question-title">{{ q.title }} <UiDifficultyBadge :difficulty="q.difficulty" /></span>
                 <p class="question-text">{{ q.question }}</p>
                 <div v-if="q.tags?.length" class="question-tags">
                   <span v-for="tag in q.tags" :key="tag" class="tag">{{ tag }}</span>

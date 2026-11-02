@@ -56,6 +56,39 @@ export const useStudentsStore = defineStore('students', () => {
     return updated
   }
 
+  /**
+   * Réordonne le passage oral : passageOrder = position (1..n).
+   * Les heures restent attachées aux créneaux (l'élève placé en 1er prend l'heure du 1er créneau).
+   * Mise à jour optimiste, rechargement en cas d'erreur.
+   */
+  async function reorderStudents(orderedIds: string[]) {
+    const ordered = orderedIds
+      .map(id => students.value.find(s => s.id === id))
+      .filter((s): s is Student => !!s)
+    // Heures des créneaux dans l'ordre actuel
+    const slotTimes = [...ordered]
+      .sort((a, b) => (a.passageOrder ?? 999) - (b.passageOrder ?? 999))
+      .map(s => s.passageTime)
+
+    const changes = ordered
+      .map((s, i) => ({ student: s, order: i + 1, time: slotTimes[i] }))
+      .filter(c => c.student.passageOrder !== c.order || c.student.passageTime !== c.time)
+
+    for (const c of changes) {
+      c.student.passageOrder = c.order
+      c.student.passageTime = c.time
+    }
+
+    try {
+      await Promise.all(changes.map(c =>
+        db.students.update(c.student.id, { passageOrder: c.order, passageTime: c.time ?? null } as Partial<Student>)
+      ))
+    } catch (e) {
+      await fetchAll()
+      throw e
+    }
+  }
+
   async function deleteStudent(id: string) {
     await db.students.delete(id)
     students.value = students.value.filter(s => s.id !== id)
@@ -73,6 +106,7 @@ export const useStudentsStore = defineStore('students', () => {
     fetchAll,
     addStudent,
     updateStudent,
+    reorderStudents,
     deleteStudent,
     getById,
   }

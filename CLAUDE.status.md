@@ -7,9 +7,11 @@
 
 ## 📅 Dernière mise à jour
 
-**Session** : Session 9
-**Date** : 2026-05-12
-**Par** : Claude Code (Opus 4.5)
+**Session** : Session 10
+**Date** : 2026-11-02
+**Par** : Claude Code (Opus 5.5)
+
+> 🎯 **Prochaine échéance : oraux du 17.11.2026** (11 élèves, 3 T + 3 P, repos personnels + Vercel)
 
 ---
 
@@ -100,9 +102,22 @@
   - [x] Si pas de token → continuer sans auth (repos publics, 60 req/h)
   - [x] Si token présent → l'utiliser (repos privés, 5000 req/h)
 
+### Retours oraux juin (Steve Fallet) — Session 10
+- [x] 1. Questions disparues après la pause (sessions en double) ✨ Session 10
+- [x] 2. Experts ne peuvent plus ajouter/modifier/supprimer d'élèves ✨ Session 10
+- [x] 3. Enseignant dans « Je suis : » (rechargement évaluateurs) ✨ Session 10
+- [x] 4. Drag & drop ordre de passage dans /oral ✨ Session 10
+- [x] 5. Export CSV des notes + sauvegarde JSON (Paramètres) ✨ Session 10
+- [x] 6. Tirage aléatoire des questions théoriques ✨ Session 10
+- [x] 7. Pool limité à la classe sélectionnée ✨ Session 10
+- [x] 8. Remarques globales par oral ✨ Session 10
+- [ ] 9. Note présentation / prestance — **en attente de décision**
+- [x] 10. Barème paramétrable (note 1–6 ou points) + pondération T ×1.0 / P ×1.5 ✨ Session 10
+- [x] 11. Difficulté des questions ✨ Session 10
+- [x] Fin GitHub Classroom : repos personnels + Vercel ✨ Session 10
+
 ### Priorité MOYENNE 🟡
 - [ ] **Import CSV** — importer les élèves depuis le CSV Notion existant
-- [ ] **Export notes** — export CSV/PDF des notes finales
 - [ ] **Gitflow branches visualisation améliorée** — lignes parallèles par branche (type GitKraken)
 
 ### Priorité BASSE 🟢
@@ -157,7 +172,20 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
   ✅ Fonctions pgcrypto pour chiffrement/déchiffrement token GitHub (Session 8)
   ✅ Colonne `initials` sur table `users` pour identification rapide (Session 9)
   ✅ FK `oral_grades.expert_id` → `users` au lieu de `experts` (Session 9)
+  ✅ Contrainte unique(student_id) sur oral_sessions (Session 10)
+  ✅ Colonne `difficulty` sur questions (Session 10)
+  ✅ Colonnes `theoretical_count` / `practical_count` sur classes (Session 10)
 ```
+
+## 🐛 Bugs corrigés Session 10
+
+| # | Description | Statut |
+|---|---|---|
+| 10 | Sessions d'oral en double → questions invisibles après une erreur réseau | ✅ Corrigé |
+| 11 | « Sélectionner du pool » affichait les questions de toutes les classes | ✅ Corrigé |
+| 12 | Numérotation T-X calculée sur toutes les classes | ✅ Corrigé |
+| 13 | Pauses manuelles enregistrées dans la table legacy `settings` (partagée) | ✅ Corrigé (`classes.pause_positions`) |
+| 14 | Note globale = moyenne simple, pondération T/P absente | ✅ Corrigé (`utils/grading.ts`) |
 
 ---
 

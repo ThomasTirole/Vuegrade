@@ -27,15 +27,11 @@ const creatingClass = ref(false)
 const classForm = reactive({
   name: '',
   year: new Date().getFullYear(),
-  githubOrg: '',
-  projectTemplate: '',
 })
 
 function openCreateClass() {
   classForm.name = ''
   classForm.year = new Date().getFullYear()
-  classForm.githubOrg = ''
-  classForm.projectTemplate = ''
   showCreateClassModal.value = true
 }
 
@@ -51,11 +47,15 @@ async function createClass() {
       teacherId: authStore.user!.id,
       name: classForm.name.trim(),
       year: classForm.year,
-      githubOrg: classForm.githubOrg.trim() || undefined,
-      projectTemplate: classForm.projectTemplate.trim() || undefined,
       pauseInterval: 4,
       pauseDuration: 15,
       pausePositions: [],
+      theoreticalCount: 3,
+      practicalCount: 3,
+      gradingScale: 'grade',
+      maxPoints: 3,
+      theoreticalWeight: 1,
+      practicalWeight: 1.5,
     })
 
     // Recharger les classes et sélectionner la nouvelle
@@ -140,22 +140,6 @@ async function createClass() {
                 icon="i-heroicons-calendar"
               />
             </UFormGroup>
-
-            <UFormGroup label="Organisation GitHub" hint="Optionnel">
-              <UInput
-                v-model="classForm.githubOrg"
-                placeholder="divtec-cejef"
-                icon="i-simple-icons-github"
-              />
-            </UFormGroup>
-
-            <UFormGroup label="Template de projet" hint="Optionnel">
-              <UInput
-                v-model="classForm.projectTemplate"
-                placeholder="m294-projet-vuetify"
-                icon="i-heroicons-document-duplicate"
-              />
-            </UFormGroup>
           </div>
 
           <template #footer>
@@ -231,7 +215,7 @@ async function createClass() {
           </button>
         </div>
 
-        <div class="version-tag">v1.2.0 — M294</div>
+        <div class="version-tag">v1.3.0 — M294</div>
       </div>
     </aside>
 

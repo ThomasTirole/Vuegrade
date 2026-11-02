@@ -76,8 +76,12 @@ async function confirmRemoveExpertFromClass() {
 
 // Formulaire settings éditables (paramètres de la classe)
 const form = reactive({
-  projectTemplate: '',
-  githubOrg: '',
+  theoreticalCount: 3,
+  practicalCount: 3,
+  gradingScale: 'grade' as Class['gradingScale'],
+  maxPoints: 3,
+  theoreticalWeight: 1,
+  practicalWeight: 1.5,
   pauseInterval: 4,
   pauseDuration: 15,
   manualPauses: [] as ManualPause[]
@@ -90,6 +94,38 @@ const durationOptions = [
   { label: '15 min', value: 15 }
 ]
 
+// --- Export ---
+const { exportJson, exportGradesCsv } = useExport()
+const exporting = ref<'json' | 'csv' | null>(null)
+
+async function runExport(kind: 'json' | 'csv') {
+  if (!currentClass.value) return
+  exporting.value = kind
+  try {
+    if (kind === 'json') await exportJson(currentClass.value)
+    else await exportGradesCsv(currentClass.value)
+  } catch (err) {
+    console.error('[settings] Erreur export:', err)
+    toast.add({ title: 'Erreur lors de l\'export', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    exporting.value = null
+  }
+}
+
+// --- Barème ---
+const gradesCount = ref(0)
+const scaleOptions = [
+  { value: 'grade', label: 'Note 1 à 6', description: 'Chaque évaluateur note 1–6, moyenne pondérée' },
+  { value: 'points', label: 'Points', description: 'Chaque évaluateur donne 0 à N points, note = pts / total × 5 + 1' },
+]
+// Changer de barème avec des notes existantes mélangerait des notes 1–6 et des points
+const scaleChangeWarning = computed(() =>
+  gradesCount.value > 0 && (
+    form.gradingScale !== currentClass.value?.gradingScale ||
+    (form.gradingScale === 'points' && form.maxPoints !== currentClass.value?.maxPoints)
+  )
+)
+
 // Pour ajouter une position manuelle
 const newPausePosition = ref<number | null>(null)
 
@@ -99,8 +135,13 @@ watch(() => currentClass.value, async (cls) => {
   loading.value = true
   try {
     // Charger les paramètres de la classe
-    form.projectTemplate = cls.projectTemplate || ''
-    form.githubOrg = cls.githubOrg || ''
+    form.theoreticalCount = cls.theoreticalCount
+    form.practicalCount = cls.practicalCount
+    form.gradingScale = cls.gradingScale
+    form.maxPoints = cls.maxPoints
+    form.theoreticalWeight = cls.theoreticalWeight
+    form.practicalWeight = cls.practicalWeight
+    gradesCount.value = isTeacher.value ? await db.oral.countGradesForClass(cls.id) : 0
     form.pauseInterval = cls.pauseInterval
     form.pauseDuration = cls.pauseDuration
     form.manualPauses = cls.pausePositions || []
@@ -123,8 +164,12 @@ async function saveSettings() {
   saving.value = true
   try {
     await db.classes.update(currentClass.value.id, {
-      projectTemplate: form.projectTemplate,
-      githubOrg: form.githubOrg,
+      theoreticalCount: form.theoreticalCount,
+      practicalCount: form.practicalCount,
+      gradingScale: form.gradingScale,
+      maxPoints: form.maxPoints,
+      theoreticalWeight: form.theoreticalWeight,
+      practicalWeight: form.practicalWeight,
       pauseInterval: form.pauseInterval,
       pauseDuration: form.pauseDuration,
       pausePositions: form.manualPauses
@@ -157,17 +202,6 @@ function removePausePosition(pause: ManualPause) {
 function updatePauseDuration(pause: ManualPause, duration: number) {
   pause.duration = duration
 }
-
-// Génère un exemple d'URL pour prévisualisation
-const exampleRepoUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://github.com/${form.githubOrg}/${form.projectTemplate}-{username}`
-})
-
-const exampleDeployUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
-})
 </script>
 
 <template>
@@ -313,49 +347,110 @@ const exampleDeployUrl = computed(() => {
         </UCard>
       </UModal>
 
-      <!-- Projet config (enseignant uniquement) -->
+      <!-- Composition de l'oral (enseignant uniquement) -->
       <section v-if="isTeacher" class="settings-section">
         <h2 class="section-title">
-          <UIcon name="i-simple-icons-github" />
-          Configuration projet
+          <UIcon name="i-heroicons-queue-list" />
+          Composition de l'oral
         </h2>
-        <p class="section-desc">Paramètres pour la génération automatique des URLs des repos élèves.</p>
+        <p class="section-desc">
+          Nombre de questions par élève. Le tirage aléatoire complète les questions théoriques jusqu'à ce nombre.
+        </p>
 
         <div class="form-grid">
-          <UFormGroup label="Organisation GitHub">
-            <UInput
-              v-model="form.githubOrg"
-              placeholder="divtec-cejef"
-              icon="i-heroicons-building-office"
-            />
+          <UFormGroup label="Questions théoriques par élève">
+            <UInput v-model.number="form.theoreticalCount" type="number" :min="0" :max="20" icon="i-heroicons-academic-cap" />
           </UFormGroup>
-          <UFormGroup label="Template de projet">
-            <UInput
-              v-model="form.projectTemplate"
-              placeholder="m294-projet-vuetify"
-              icon="i-heroicons-document-duplicate"
-            />
+          <UFormGroup label="Questions pratiques par élève">
+            <UInput v-model.number="form.practicalCount" type="number" :min="0" :max="20" icon="i-heroicons-code-bracket" />
           </UFormGroup>
-        </div>
-
-        <div v-if="exampleRepoUrl" class="url-preview">
-          <div class="preview-item">
-            <span class="preview-label">Repo</span>
-            <code class="mono">{{ exampleRepoUrl }}</code>
-          </div>
-          <div class="preview-item">
-            <span class="preview-label">Deploy</span>
-            <code class="mono">{{ exampleDeployUrl }}</code>
-          </div>
         </div>
 
         <div class="form-actions">
+          <UButton @click="saveSettings" :loading="saving" icon="i-heroicons-check" size="sm">
+            Enregistrer
+          </UButton>
+        </div>
+      </section>
+
+      <!-- Export (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-arrow-down-tray" />
+          Export & sauvegarde
+        </h2>
+        <p class="section-desc">
+          Notes de la classe en CSV (Excel), ou sauvegarde complète en JSON : élèves, questions, attributions, sessions et notes.
+        </p>
+        <div class="export-actions">
           <UButton
-            @click="saveSettings"
-            :loading="saving"
-            icon="i-heroicons-check"
+            icon="i-heroicons-table-cells"
             size="sm"
+            :loading="exporting === 'csv'"
+            :disabled="!!exporting"
+            @click="runExport('csv')"
           >
+            Notes (CSV)
+          </UButton>
+          <UButton
+            icon="i-heroicons-circle-stack"
+            size="sm"
+            variant="outline"
+            :loading="exporting === 'json'"
+            :disabled="!!exporting"
+            @click="runExport('json')"
+          >
+            Sauvegarde complète (JSON)
+          </UButton>
+        </div>
+      </section>
+
+      <!-- Barème (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-scale" />
+          Barème et pondération
+        </h2>
+        <p class="section-desc">
+          Note finale arrondie au 0.5. Les questions sont pondérées selon leur type.
+        </p>
+
+        <div class="scale-options">
+          <button
+            v-for="opt in scaleOptions"
+            :key="opt.value"
+            type="button"
+            class="scale-option"
+            :class="{ 'scale-option--active': form.gradingScale === opt.value }"
+            @click="form.gradingScale = opt.value as Class['gradingScale']"
+          >
+            <span class="scale-option-label">{{ opt.label }}</span>
+            <span class="scale-option-desc">{{ opt.description }}</span>
+          </button>
+        </div>
+
+        <div class="form-grid">
+          <UFormGroup v-if="form.gradingScale === 'points'" label="Points max par question">
+            <UInput v-model.number="form.maxPoints" type="number" :min="1" :max="20" icon="i-heroicons-star" />
+          </UFormGroup>
+          <UFormGroup label="Poids questions théoriques">
+            <UInput v-model.number="form.theoreticalWeight" type="number" :min="0.1" step="0.1" icon="i-heroicons-academic-cap" />
+          </UFormGroup>
+          <UFormGroup label="Poids questions pratiques">
+            <UInput v-model.number="form.practicalWeight" type="number" :min="0.1" step="0.1" icon="i-heroicons-code-bracket" />
+          </UFormGroup>
+        </div>
+
+        <UAlert
+          v-if="scaleChangeWarning"
+          color="orange"
+          variant="soft"
+          icon="i-heroicons-exclamation-triangle"
+          :description="`${gradesCount} note(s) déjà saisie(s) dans cette classe avec l'ancien barème : elles seraient mal interprétées. Changez le barème uniquement avant les oraux.`"
+        />
+
+        <div class="form-actions">
+          <UButton @click="saveSettings" :loading="saving" icon="i-heroicons-check" size="sm">
             Enregistrer
           </UButton>
         </div>
@@ -677,37 +772,37 @@ const exampleDeployUrl = computed(() => {
   gap: 1rem;
 }
 
-.url-preview {
-  background: var(--c-bg);
-  border: 1px solid var(--c-border-soft);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.preview-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-}
-
-.preview-label {
-  color: var(--c-text-muted);
-  min-width: 50px;
-}
-
-.preview-item code {
-  color: var(--c-nuxt);
-  word-break: break-all;
-}
-
 .form-actions {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Export */
+.export-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+/* Barème */
+.scale-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.scale-option {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.scale-option:hover { border-color: var(--c-text-muted); }
+.scale-option--active {
+  border-color: var(--c-nuxt);
+  background: color-mix(in srgb, var(--c-nuxt) 6%, var(--c-bg));
+}
+.scale-option-label { font-size: 0.875rem; font-weight: 600; color: var(--c-text); }
+.scale-option-desc { font-size: 0.75rem; color: var(--c-text-muted); }
 
 /* Pause config */
 .pause-config {

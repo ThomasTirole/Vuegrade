@@ -438,6 +438,18 @@ export const useDB = () => {
       return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
     },
 
+    /** Toutes les questions d'une classe (pool théorique + pratiques des élèves) — export */
+    async getAllForClass(classId: string): Promise<Question[]> {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('class_id', classId)
+        .order('type')
+        .order('created_at')
+      if (error) throw error
+      return data.map(mapQuestion)
+    },
+
     async getAssignedForStudent(studentId: string): Promise<Question[]> {
       const { data: assignedData, error: assignedError } = await supabase
         .from('student_questions')
@@ -477,15 +489,19 @@ export const useDB = () => {
   // ----------------------------------------------------------
   const oral = {
     async getSessionByStudent(studentId: string): Promise<OralSession | null> {
+      // order + limit : reste robuste même si des doublons existaient (contrainte unique en BDD)
       const { data, error } = await supabase
         .from('oral_sessions')
         .select(`*, oral_grades(*)`)
         .eq('student_id', studentId)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
       if (error) throw error
       return data ? mapSession(data) : null
     },
 
+    /** Crée la session d'un élève, ou retourne celle existante (une seule session par élève) */
     async createSession(studentId: string, questionIds: string[], classId?: string): Promise<OralSession> {
       const insert: Record<string, unknown> = {
         student_id: studentId,
@@ -499,6 +515,12 @@ export const useDB = () => {
         .insert(insert)
         .select()
         .single()
+
+      // 23505 = violation d'unicité : un autre évaluateur a déjà démarré la session
+      if (error?.code === '23505') {
+        const existing = await oral.getSessionByStudent(studentId)
+        if (existing) return existing
+      }
       if (error) throw error
       return mapSession(data)
     },
@@ -535,6 +557,35 @@ export const useDB = () => {
       return mapGrade(data)
     },
 
+    /** Sessions (avec notes) de tous les élèves d'une classe — export */
+    async getSessionsForClass(classId: string): Promise<OralSession[]> {
+      const { data, error } = await supabase
+        .from('oral_sessions')
+        .select('*, oral_grades(*), students!inner(class_id)')
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return data.map(mapSession)
+    },
+
+    /** Nombre de notes déjà saisies pour une classe (avertissement avant changement de barème) */
+    async countGradesForClass(classId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from('oral_grades')
+        .select('id, students!inner(class_id)', { count: 'exact', head: true })
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return count ?? 0
+    },
+
+    /** Remarques globales de l'oral (partagées entre évaluateurs) */
+    async updateSessionNotes(sessionId: string, notes: string): Promise<void> {
+      const { error } = await supabase
+        .from('oral_sessions')
+        .update({ notes: notes || null })
+        .eq('id', sessionId)
+      if (error) throw error
+    },
+
     async updateSessionTotal(sessionId: string, totalScore: number): Promise<void> {
       const { error } = await supabase
         .from('oral_sessions')
@@ -556,6 +607,16 @@ export const useDB = () => {
         .order('position', { ascending: true })
       if (error) throw error
       return data.map(d => ({ questionId: d.question_id, position: d.position }))
+    },
+
+    /** Toutes les attributions des élèves d'une classe (pour éviter les doublons au tirage) */
+    async getForClass(classId: string): Promise<{ studentId: string; questionId: string; position: number }[]> {
+      const { data, error } = await supabase
+        .from('student_questions')
+        .select('student_id, question_id, position, students!inner(class_id)')
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return data.map(d => ({ studentId: d.student_id, questionId: d.question_id, position: d.position }))
     },
 
     async assign(studentId: string, questionId: string, position: number): Promise<void> {
@@ -718,6 +779,13 @@ function mapClass(d: Record<string, unknown>): Class {
     pauseInterval: d.pause_interval as number,
     pauseDuration: d.pause_duration as number,
     pausePositions: d.pause_positions as { position: number; duration: number }[],
+    theoreticalCount: (d.theoretical_count as number) ?? 3,
+    practicalCount: (d.practical_count as number) ?? 3,
+    gradingScale: (d.grading_scale as Class['gradingScale']) ?? 'grade',
+    maxPoints: (d.max_points as number) ?? 3,
+    // numeric PostgreSQL peut arriver en string selon le client
+    theoreticalWeight: Number(d.theoretical_weight ?? 1),
+    practicalWeight: Number(d.practical_weight ?? 1.5),
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }
@@ -756,6 +824,7 @@ function mapQuestion(d: Record<string, unknown>): Question {
     codeLanguage: d.code_language as string | undefined,
     studentId: d.student_id as string | null | undefined,
     tags: d.tags as string[] | undefined,
+    difficulty: d.difficulty as Question['difficulty'],
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { SCORE_LABELS } from '~/types'
 import type { Question, OralSession, User, OralGrade } from '~/types'
+import { averageScore, formatNumber, scoreLevel, scoreValues as buildScoreValues, weightOf } from '~/utils/grading'
+import type { GradingConfig } from '~/utils/grading'
 
 const props = defineProps<{
   question: Question
@@ -8,6 +10,7 @@ const props = defineProps<{
   evaluators: User[] // Teacher + experts de la classe
   session: OralSession
   grades: OralGrade[] // Grades en temps réel
+  grading: GradingConfig // Barème de la classe
   currentExpertId: string | null
   saving: boolean
 }>()
@@ -17,7 +20,14 @@ const emit = defineEmits<{
 }>()
 
 const expanded = ref(false)
-const scoreValues = [1, 2, 3, 4, 5, 6]
+const scoreValues = computed(() => buildScoreValues(props.grading))
+const isPoints = computed(() => props.grading.scale === 'points')
+const weight = computed(() => weightOf(props.question.type, props.grading))
+
+// Libellé d'un bouton (descriptions 1–6 uniquement pour le barème note)
+function scoreTitle(s: number): string {
+  return isPoints.value ? `${s} / ${props.grading.maxPoints} pt` : SCORE_LABELS[s]
+}
 
 // Récupère le score d'un expert pour cette question
 function getExpertScore(expertId: string): number | null {
@@ -27,15 +37,8 @@ function getExpertScore(expertId: string): number | null {
   return grade?.score ?? null
 }
 
-// Note finale (moyenne des évaluateurs)
-const finalScore = computed(() => {
-  const scores = props.evaluators
-    .map(e => getExpertScore(e.id))
-    .filter((s): s is number => s !== null)
-  if (scores.length === 0) return null
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-  return Math.round(avg * 2) / 2
-})
+// Moyenne des évaluateurs (non arrondie, l'arrondi se fait sur la note globale)
+const finalScore = computed(() => averageScore(props.evaluators.map(e => getExpertScore(e.id))))
 
 // Score actuel de l'expert courant pour cette question
 const currentExpertScore = computed(() => {
@@ -50,6 +53,7 @@ const currentExpertScore = computed(() => {
     <div class="row-header" @click="expanded = !expanded">
       <span class="q-ref mono">{{ displayRef }}</span>
       <span class="q-title">{{ question.title }}</span>
+      <UiDifficultyBadge :difficulty="question.difficulty" />
 
       <!-- Scores par évaluateur -->
       <div class="expert-scores">
@@ -63,7 +67,7 @@ const currentExpertScore = computed(() => {
           <span
             v-if="getExpertScore(evaluator.id) !== null"
             class="score-dot"
-            :class="`score-dot--${getExpertScore(evaluator.id)}`"
+            :class="`score-dot--${scoreLevel(getExpertScore(evaluator.id)!, grading)}`"
           >
             {{ getExpertScore(evaluator.id) }}
           </span>
@@ -75,9 +79,10 @@ const currentExpertScore = computed(() => {
       <span
         v-if="finalScore !== null"
         class="final-score mono"
-        :class="`score-${Math.round(finalScore)}`"
+        :class="`score-${scoreLevel(finalScore, grading)}`"
+        :title="`Moyenne des évaluateurs · poids ×${formatNumber(weight)}`"
       >
-        {{ finalScore.toFixed(1) }}
+        {{ formatNumber(finalScore) }}
       </span>
       <span v-else class="final-placeholder mono">—</span>
 
@@ -121,15 +126,19 @@ const currentExpertScore = computed(() => {
             v-for="s in scoreValues"
             :key="s"
             class="score-btn"
-            :class="[`score-btn--${s}`, { 'score-btn--selected': currentExpertScore === s }]"
-            :title="SCORE_LABELS[s]"
+            :class="[`score-btn--${scoreLevel(s, grading)}`, { 'score-btn--selected': currentExpertScore === s }]"
+            :title="scoreTitle(s)"
             :disabled="saving"
             @click="emit('score', s)"
           >
             {{ s }}
           </button>
         </div>
-        <span class="score-hint mono">{{ SCORE_LABELS[1] }} → {{ SCORE_LABELS[6] }}</span>
+        <span class="score-hint mono">
+          <template v-if="isPoints">0 → {{ grading.maxPoints }} points</template>
+          <template v-else>{{ SCORE_LABELS[1] }} → {{ SCORE_LABELS[6] }}</template>
+          · poids ×{{ formatNumber(weight) }}
+        </span>
       </div>
       <div v-else class="no-expert-warn">
         <UIcon name="i-heroicons-exclamation-triangle" />
@@ -306,7 +315,7 @@ const currentExpertScore = computed(() => {
   border-radius: 8px;
 }
 
-.score-buttons { display: flex; gap: 0.4rem; }
+.score-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
 .score-btn {
   width: 36px; height: 36px;

@@ -1,5 +1,7 @@
 <!-- pages/students/[id]/edit.vue — Formulaire édition élève -->
 <script setup lang="ts">
+import { parseRepoUrl } from '~/composables/useGitHub'
+
 const route = useRoute()
 const router = useRouter()
 const db = useDB()
@@ -48,6 +50,18 @@ watchEffect(() => {
     form.passageTime = student.value.passageTime ?? ''
   }
 })
+
+// Repos personnels des élèves : le username GitHub est déduit de l'URL du repo
+watch(
+  () => form.repoUrl,
+  (url) => {
+    try {
+      form.githubUsername = parseRepoUrl(url.trim()).owner
+    } catch {
+      // URL incomplète pendant la saisie : on ne touche pas au username
+    }
+  }
+)
 
 // Afficher l'erreur de fetch si présente
 watchEffect(() => {
@@ -142,11 +156,12 @@ async function handleSubmit() {
       <!-- Section projet -->
       <div class="form-section">
         <h2 class="section-title">Projet</h2>
-        <UFormGroup label="URL du repo GitHub" required>
-          <UInput v-model="form.repoUrl" placeholder="https://github.com/org/repo" icon="i-heroicons-link" />
+        <UFormGroup label="URL du repo GitHub" required hint="Repo personnel de l'élève — le username est déduit">
+          <UInput v-model="form.repoUrl" placeholder="https://github.com/johndoe/mon-projet" icon="i-heroicons-link" />
+          <StudentRepoCheck :repo-url="form.repoUrl" class="repo-check-row" />
         </UFormGroup>
-        <UFormGroup label="URL du site déployé" hint="Calculée automatiquement depuis le repo">
-          <UInput v-model="form.deployUrl" placeholder="https://username.github.io/repo/" icon="i-heroicons-globe-alt" />
+        <UFormGroup label="URL du site déployé" hint="URL de production Vercel">
+          <StudentDeployUrlInput v-model="form.deployUrl" :repo-url="form.repoUrl" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
           <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
@@ -277,6 +292,7 @@ async function handleSubmit() {
 }
 
 .mb-4 { margin-bottom: 1rem; }
+.repo-check-row { margin-top: 0.5rem; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }

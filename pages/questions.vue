@@ -2,12 +2,52 @@
 // Page du pool de questions théoriques uniquement
 // Les questions pratiques sont créées directement sur la fiche élève
 
-import type { Question } from '~/types'
+import { DIFFICULTY_LABELS } from '~/types'
+import type { Question, QuestionDifficulty } from '~/types'
 
 const questionsStore = useQuestionsStore()
 const { pool, loading } = storeToRefs(questionsStore)
+const studentsStore = useStudentsStore()
+const { students } = storeToRefs(studentsStore)
+const authStore = useAuthStore()
 
-onMounted(() => questionsStore.fetchPool())
+onMounted(() => {
+  questionsStore.fetchPool()
+  studentsStore.fetchAll()
+})
+
+// --- Tirage aléatoire pour toute la classe ---
+const { drawForClass } = useQuestionDraw()
+const drawingClass = ref(false)
+const theoreticalTarget = computed(() => authStore.selectedClass?.theoreticalCount ?? 3)
+
+async function drawAllStudents() {
+  const classId = authStore.selectedClassId
+  if (!classId || students.value.length === 0) return
+  const confirmed = await confirm({
+    title: 'Tirage pour toute la classe ?',
+    message: `Chaque élève sera complété jusqu'à ${theoreticalTarget.value} question(s) théorique(s). Les questions déjà attribuées sont conservées.`,
+    confirmLabel: 'Lancer le tirage',
+    confirmColor: 'primary',
+  })
+  if (!confirmed) return
+
+  drawingClass.value = true
+  try {
+    const res = await drawForClass(classId, students.value.map(s => s.id), theoreticalTarget.value)
+    toast.add({
+      title: res.questions > 0 ? 'Tirage terminé' : 'Aucune question ajoutée',
+      description: `${res.questions} question(s) attribuée(s) à ${res.students} élève(s).`,
+      icon: 'i-heroicons-sparkles',
+      color: res.questions > 0 ? 'green' : 'gray',
+    })
+  } catch (err) {
+    console.error('[questions] Erreur tirage classe:', err)
+    toast.add({ title: 'Erreur lors du tirage', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    drawingClass.value = false
+  }
+}
 
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
@@ -16,6 +56,28 @@ const { confirm } = useConfirm()
 
 // Filtrer uniquement les questions théoriques (pool)
 const theoreticalQs = computed(() => pool.value.filter(q => q.type === 'theoretical'))
+
+// Filtre par difficulté ('all' = toutes, 'none' = non définie)
+type DifficultyFilter = 'all' | 'none' | QuestionDifficulty
+const difficultyFilter = ref<DifficultyFilter>('all')
+
+const difficultyFilters = computed(() => {
+  const count = (f: DifficultyFilter) => theoreticalQs.value.filter(q => matchesDifficulty(q, f)).length
+  return [
+    { value: 'all' as DifficultyFilter, label: 'Toutes', count: theoreticalQs.value.length },
+    ...(Object.entries(DIFFICULTY_LABELS) as [QuestionDifficulty, string][])
+      .map(([value, label]) => ({ value: value as DifficultyFilter, label, count: count(value) })),
+    { value: 'none' as DifficultyFilter, label: 'Non définie', count: count('none') },
+  ]
+})
+
+function matchesDifficulty(q: Question, f: DifficultyFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'none') return !q.difficulty
+  return q.difficulty === f
+}
+
+const filteredQs = computed(() => theoreticalQs.value.filter(q => matchesDifficulty(q, difficultyFilter.value)))
 
 function openNew() {
   editingQuestion.value = null
@@ -74,21 +136,40 @@ async function handleUpdate(payload: Question) {
           <h1 class="page-title">Pool de questions théoriques</h1>
           <p class="page-subtitle mono">Questions communes attribuables aux élèves</p>
         </div>
-        <UButton
-          icon="i-heroicons-plus"
-          color="primary"
-          size="sm"
-          @click="openNew"
-        >
-          Nouvelle question
-        </UButton>
+        <div class="header-actions">
+          <UButton
+            v-if="authStore.isTeacher"
+            icon="i-heroicons-sparkles"
+            variant="soft"
+            size="sm"
+            :loading="drawingClass"
+            :disabled="theoreticalQs.length === 0 || students.length === 0"
+            @click="drawAllStudents"
+          >
+            Tirage pour la classe
+          </UButton>
+          <UButton
+            icon="i-heroicons-plus"
+            color="primary"
+            size="sm"
+            @click="openNew"
+          >
+            Nouvelle question
+          </UButton>
+        </div>
       </div>
 
       <div class="q-counts">
-        <div class="q-count-chip">
-          <span class="mono">{{ theoreticalQs.length }}</span>
-          <span>questions</span>
-        </div>
+        <button
+          v-for="f in difficultyFilters"
+          :key="f.value"
+          class="q-count-chip"
+          :class="[`q-count-chip--${f.value}`, { 'q-count-chip--active': difficultyFilter === f.value }]"
+          @click="difficultyFilter = f.value"
+        >
+          <span class="mono">{{ f.count }}</span>
+          <span>{{ f.label }}</span>
+        </button>
       </div>
     </header>
 
@@ -101,12 +182,15 @@ async function handleUpdate(payload: Question) {
     <!-- Question list -->
     <div v-else class="question-list">
       <UiQuestionCard
-        v-for="q in theoreticalQs"
+        v-for="q in filteredQs"
         :key="q.id"
         :question="q"
         @edit="openEdit(q)"
         @delete="deleteQuestion(q)"
       />
+      <p v-if="theoreticalQs.length > 0 && filteredQs.length === 0" class="muted">
+        Aucune question pour ce filtre.
+      </p>
       <div v-if="theoreticalQs.length === 0" class="empty-state">
         <UIcon name="i-heroicons-document-text" class="empty-icon" />
         <p>Aucune question théorique pour le moment.</p>
@@ -142,7 +226,9 @@ async function handleUpdate(payload: Question) {
 }
 .page-subtitle { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-text-muted); margin: 0; }
 
-.q-counts { display: flex; gap: 0.75rem; }
+.header-actions { display: flex; gap: 0.5rem; }
+
+.q-counts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .q-count-chip {
   display: flex; align-items: baseline; gap: 0.35rem;
   padding: 0.4rem 0.875rem;
@@ -150,8 +236,14 @@ async function handleUpdate(payload: Question) {
   border: 1px solid var(--c-border);
   border-radius: 8px;
   font-size: 0.8rem; color: var(--c-text-soft);
+  cursor: pointer; transition: all 0.12s;
 }
+.q-count-chip:hover { border-color: var(--c-text-muted); }
 .q-count-chip .mono { font-size: 1rem; font-weight: 600; color: var(--c-text); }
+.q-count-chip--active { border-color: var(--c-nuxt); color: var(--c-text); }
+.q-count-chip--easy.q-count-chip--active { border-color: var(--c-vue); }
+.q-count-chip--medium.q-count-chip--active { border-color: var(--c-warn); }
+.q-count-chip--hard.q-count-chip--active { border-color: var(--c-error); }
 
 .question-list { display: flex; flex-direction: column; gap: 0.75rem; }
 

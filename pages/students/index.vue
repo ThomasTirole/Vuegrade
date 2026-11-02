@@ -2,6 +2,7 @@
 <script setup lang="ts">
 const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
+const authStore = useAuthStore()
 
 onMounted(() => studentsStore.fetchAll())
 
@@ -42,6 +43,7 @@ const filteredStudents = computed(() => {
           <p class="page-subtitle mono">{{ students.length }} élève{{ students.length > 1 ? 's' : '' }} inscrits</p>
         </div>
         <UButton
+          v-if="authStore.isTeacher"
           to="/students/new"
           icon="i-heroicons-plus"
           color="primary"
@@ -116,7 +118,7 @@ const filteredStudents = computed(() => {
       </template>
       <template v-else>
         <p>Aucun élève inscrit pour le moment.</p>
-        <UButton to="/students/new" size="sm" icon="i-heroicons-plus">Ajouter un élève</UButton>
+        <UButton v-if="authStore.isTeacher" to="/students/new" size="sm" icon="i-heroicons-plus">Ajouter un élève</UButton>
       </template>
     </div>
   </div>

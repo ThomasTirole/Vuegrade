@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { calculateFinalScore, SCORE_LABELS } from '~/types'
 import type { Question, OralSession, OralGrade, User } from '~/types'
+import { averageScore, computeOralResult, formatNumber, gradingFromClass, scoreLevel, scoreValues } from '~/utils/grading'
 
 const props = defineProps<{ studentId: string }>()
 
 const db = useDB()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const session = ref<OralSession | null>(null)
 const questions = ref<Question[]>([])
 const evaluators = ref<User[]>([]) // Teacher + experts de la classe
 const loading = ref(true)
+const loadError = ref<string | null>(null) // Erreur de chargement (affichée avec bouton Réessayer)
+const starting = ref(false)
 const saving = ref<string | null>(null) // questionId en cours de sauvegarde
 
 // Quel évaluateur suis-je ? (stocké en localStorage pour persistance de session)
@@ -27,30 +30,51 @@ const studentIdRef = toRef(props, 'studentId')
 // Synchronisation realtime des notes et sessions
 useRealtimeGrades(studentIdRef, session, grades)
 
-onMounted(async () => {
+// Charge les évaluateurs dès que la classe est connue (la session auth peut être restaurée après le montage)
+watch(() => authStore.selectedClassId, async (classId) => {
+  if (!classId) return
   try {
-    // Récupère le classId depuis le store auth
-    const classId = authStore.selectedClassId
+    evaluators.value = await db.classes.getEvaluators(classId)
+  } catch (err) {
+    console.error('[OralPanel] Erreur chargement évaluateurs:', err)
+    loadError.value = 'Impossible de charger les évaluateurs.'
+  }
+}, { immediate: true })
 
+onMounted(loadData)
+
+/**
+ * Charge les questions attribuées et la session de l'élève.
+ * En cas d'erreur, on n'affiche PAS « Démarrer la session » (cela créait des doublons) :
+ * on affiche l'erreur avec un bouton Réessayer.
+ */
+async function loadData() {
+  loading.value = true
+  loadError.value = null
+  try {
     const [qs, sess] = await Promise.all([
       // Utilise getAssignedForStudent pour n'avoir que les questions attribuées
       db.questions.getAssignedForStudent(props.studentId),
       db.oral.getSessionByStudent(props.studentId),
     ])
-
-    // Charge les évaluateurs de la classe (teacher + experts)
-    if (classId) {
-      evaluators.value = await db.classes.getEvaluators(classId)
-    }
-
     questions.value = qs
     session.value = sess
     // Initialise les grades depuis la session
     grades.value = sess?.grades ?? []
+  } catch (err) {
+    console.error('[OralPanel] Erreur chargement oral:', err)
+    loadError.value = 'Impossible de charger l\'oral de cet élève. Vérifiez la connexion puis réessayez.'
   } finally {
     loading.value = false
   }
-})
+}
+
+async function retry() {
+  await loadData()
+  if (!loadError.value && authStore.selectedClassId) {
+    evaluators.value = await db.classes.getEvaluators(authStore.selectedClassId)
+  }
+}
 
 // Sélection de l'expert courant
 function selectExpert(id: string) {
@@ -66,28 +90,44 @@ function getScore(questionId: string, expertId: string): number | null {
   return grade?.score ?? null
 }
 
-// Note finale pour une question (moyenne des évaluateurs)
-function getQuestionFinal(questionId: string): number | null {
-  const scores = evaluators.value
-    .map(e => getScore(questionId, e.id))
-    .filter((s): s is number => s !== null)
-  return calculateFinalScore(scores)
+// Barème et pondération de la classe
+const grading = computed(() => gradingFromClass(authStore.selectedClass))
+
+// Moyenne des évaluateurs pour une question (non arrondie)
+function getQuestionAverage(questionId: string): number | null {
+  return averageScore(evaluators.value.map(e => getScore(questionId, e.id)))
 }
 
-// Score global de l'élève
-const globalScore = computed(() => {
-  const questionFinals = questions.value
-    .map(q => getQuestionFinal(q.id))
-    .filter((s): s is number => s !== null)
-  return calculateFinalScore(questionFinals)
-})
+// Note globale pondérée (provisoire tant que toutes les questions ne sont pas notées)
+const result = computed(() => computeOralResult(questions.value, getQuestionAverage, grading.value))
 
-// Crée ou démarre une session
+// Crée ou démarre une session (retourne la session existante si un autre évaluateur l'a déjà créée)
 async function startSession() {
-  const questionIds = questions.value.map(q => q.id)
-  session.value = await db.oral.createSession(props.studentId, questionIds)
-  await db.oral.updateSessionStatus(session.value.id, 'in_progress')
-  session.value.status = 'in_progress'
+  starting.value = true
+  try {
+    const questionIds = questions.value.map(q => q.id)
+    const sess = await db.oral.createSession(
+      props.studentId,
+      questionIds,
+      authStore.selectedClassId ?? undefined
+    )
+    if (sess.status === 'pending') {
+      await db.oral.updateSessionStatus(sess.id, 'in_progress')
+      sess.status = 'in_progress'
+    }
+    session.value = sess
+    grades.value = sess.grades
+  } catch (err) {
+    console.error('[OralPanel] Erreur démarrage session:', err)
+    toast.add({
+      title: 'Impossible de démarrer la session',
+      description: 'Vérifiez la connexion puis réessayez.',
+      icon: 'i-heroicons-exclamation-triangle',
+      color: 'red',
+    })
+  } finally {
+    starting.value = false
+  }
 }
 
 // Termine la session
@@ -111,6 +151,7 @@ const isCompleted = computed(() => session.value?.status === 'completed')
 // Sauvegarde une note
 async function saveScore(questionId: string, score: number) {
   if (!session.value || !currentExpertId.value) return
+  if (!scoreValues(grading.value).includes(score)) return
   saving.value = questionId
   try {
     const newGrade = await db.oral.upsertGrade({
@@ -133,6 +174,49 @@ async function saveScore(questionId: string, score: number) {
     saving.value = null
   }
 }
+
+// ── Remarques globales (champ partagé, sauvegarde auto) ──
+const notesDraft = ref('')
+const notesFocused = ref(false)
+const notesStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+let notesTimer: ReturnType<typeof setTimeout> | null = null
+
+// Synchronise depuis la session (chargement + realtime), sauf pendant la saisie locale
+watch(() => session.value?.notes, (notes) => {
+  if (!notesFocused.value) notesDraft.value = notes ?? ''
+}, { immediate: true })
+
+function onNotesInput() {
+  if (notesTimer) clearTimeout(notesTimer)
+  notesTimer = setTimeout(saveNotes, 800)
+}
+
+async function saveNotes() {
+  if (notesTimer) {
+    clearTimeout(notesTimer)
+    notesTimer = null
+  }
+  if (!session.value || notesDraft.value === (session.value.notes ?? '')) return
+  notesStatus.value = 'saving'
+  try {
+    await db.oral.updateSessionNotes(session.value.id, notesDraft.value)
+    session.value.notes = notesDraft.value
+    notesStatus.value = 'saved'
+  } catch (err) {
+    console.error('[OralPanel] Erreur sauvegarde remarques:', err)
+    notesStatus.value = 'error'
+  }
+}
+
+function onNotesBlur() {
+  notesFocused.value = false
+  saveNotes()
+}
+
+onBeforeUnmount(() => {
+  // Ne pas perdre une saisie en cours si on change d'élève
+  if (notesTimer) saveNotes()
+})
 
 const theoreticalQs = computed(() => questions.value.filter(q => q.type === 'theoretical'))
 const practicalQs = computed(() => questions.value.filter(q => q.type === 'practical'))
@@ -185,10 +269,22 @@ function getDisplayRef(question: Question, index: number): string {
     </div>
 
     <!-- Score global -->
-    <div class="score-summary" v-if="globalScore !== null">
-      <span class="score-label">Note globale</span>
-      <span class="score-final" :class="`score-${Math.round(globalScore)}`">
-        {{ globalScore.toFixed(1) }}
+    <div class="score-summary" v-if="result">
+      <div class="score-label">
+        <span>Note globale</span>
+        <span class="score-detail">
+          <template v-if="result.points !== undefined">
+            {{ formatNumber(result.points) }} / {{ formatNumber(result.maxPoints!) }} pts ·
+          </template>
+          exacte {{ formatNumber(result.exactGrade) }}
+          · T ×{{ formatNumber(grading.theoreticalWeight) }} / P ×{{ formatNumber(grading.practicalWeight) }}
+          <template v-if="result.gradedCount < result.totalCount">
+            · provisoire ({{ result.gradedCount }}/{{ result.totalCount }} questions notées)
+          </template>
+        </span>
+      </div>
+      <span class="score-final" :class="`score-${scoreLevel(result.grade, { ...grading, scale: 'grade' })}`">
+        {{ result.grade.toFixed(1) }}
       </span>
       <span class="score-max">/ 6</span>
       <UButton
@@ -204,10 +300,30 @@ function getDisplayRef(question: Question, index: number): string {
       </UButton>
     </div>
 
+    <!-- Chargement -->
+    <div v-if="loading" class="no-session">
+      <UIcon name="i-heroicons-arrow-path" class="spin" />
+    </div>
+
+    <!-- Erreur de chargement -->
+    <div v-else-if="loadError" class="no-session no-session--error">
+      <UIcon name="i-heroicons-exclamation-triangle" class="error-icon" />
+      <p>{{ loadError }}</p>
+      <UButton @click="retry" icon="i-heroicons-arrow-path" color="red" variant="soft" size="sm">
+        Réessayer
+      </UButton>
+    </div>
+
     <!-- Pas de session -->
-    <div v-if="!session" class="no-session">
+    <div v-else-if="!session" class="no-session">
       <p>Aucune session d'oral démarrée pour cet élève.</p>
-      <UButton @click="startSession" icon="i-heroicons-play" color="primary" size="sm">
+      <UButton
+        @click="startSession"
+        :loading="starting"
+        icon="i-heroicons-play"
+        color="primary"
+        size="sm"
+      >
         Démarrer la session
       </UButton>
     </div>
@@ -227,6 +343,7 @@ function getDisplayRef(question: Question, index: number): string {
           :evaluators="evaluators"
           :session="session"
           :grades="grades"
+          :grading="grading"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -247,9 +364,32 @@ function getDisplayRef(question: Question, index: number): string {
           :evaluators="evaluators"
           :session="session"
           :grades="grades"
+          :grading="grading"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
+        />
+      </div>
+
+      <!-- Remarques globales de l'oral -->
+      <div class="question-section">
+        <h3 class="section-title">
+          <UIcon name="i-heroicons-chat-bubble-left-ellipsis" />
+          Remarques
+          <span class="notes-status mono" :class="`notes-status--${notesStatus}`">
+            <template v-if="notesStatus === 'saving'">enregistrement…</template>
+            <template v-else-if="notesStatus === 'saved'">enregistré</template>
+            <template v-else-if="notesStatus === 'error'">erreur d'enregistrement</template>
+          </span>
+        </h3>
+        <UTextarea
+          v-model="notesDraft"
+          :rows="4"
+          autoresize
+          placeholder="Remarques sur l'oral (partagées entre évaluateurs)…"
+          @focus="notesFocused = true"
+          @blur="onNotesBlur"
+          @update:model-value="onNotesInput"
         />
       </div>
     </template>
@@ -324,7 +464,12 @@ function getDisplayRef(question: Question, index: number): string {
   font-size: 0.75rem;
   color: var(--c-text-muted);
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
+
+.score-detail { font-size: 0.68rem; opacity: 0.8; }
 
 .score-final {
   font-family: var(--font-mono);
@@ -394,6 +539,26 @@ function getDisplayRef(question: Question, index: number): string {
   border: 1px dashed var(--c-border);
   border-radius: 12px;
 }
+
+/* Remarques */
+.notes-status {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+.notes-status--saved { color: var(--c-vue); }
+.notes-status--error { color: var(--c-error); }
+
+.no-session--error {
+  color: var(--c-error);
+  border-color: color-mix(in srgb, var(--c-error) 40%, transparent);
+}
+
+.error-icon { font-size: 1.75rem; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; font-size: 1.25rem; }
 
 /* Session status */
 .session-status {

@@ -38,6 +38,16 @@ export interface Class {
   pauseInterval: number
   pauseDuration: number
   pausePositions: { position: number; duration: number }[]
+  /** Nombre de questions théoriques par élève (tirage aléatoire) */
+  theoreticalCount: number
+  /** Nombre de questions pratiques visé par élève */
+  practicalCount: number
+  /** Barème : note 1–6 ou points 0–maxPoints par question */
+  gradingScale: 'grade' | 'points'
+  maxPoints: number
+  /** Pondération des questions théoriques / pratiques */
+  theoreticalWeight: number
+  practicalWeight: number
   createdAt: string
   updatedAt: string
 }
@@ -97,6 +107,13 @@ export interface Student {
 // ------------------------------------------------------------
 
 export type QuestionType = 'theoretical' | 'practical'
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
+
+export const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
+  easy: 'Facile',
+  medium: 'Moyenne',
+  hard: 'Difficile',
+}
 
 export interface Question {
   id: string
@@ -117,6 +134,8 @@ export interface Question {
   /** Questions associées à un élève spécifique (null = pool commun) */
   studentId?: string | null
   tags?: string[]
+  /** Niveau de difficulté (facultatif) */
+  difficulty?: QuestionDifficulty | null
   createdAt: string
   updatedAt: string
 }
