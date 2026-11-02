@@ -38,6 +38,10 @@ export interface Class {
   pauseInterval: number
   pauseDuration: number
   pausePositions: { position: number; duration: number }[]
+  /** Nombre de questions théoriques par élève (tirage aléatoire) */
+  theoreticalCount: number
+  /** Nombre de questions pratiques visé par élève */
+  practicalCount: number
   createdAt: string
   updatedAt: string
 }

@@ -7,8 +7,47 @@ import type { Question, QuestionDifficulty } from '~/types'
 
 const questionsStore = useQuestionsStore()
 const { pool, loading } = storeToRefs(questionsStore)
+const studentsStore = useStudentsStore()
+const { students } = storeToRefs(studentsStore)
+const authStore = useAuthStore()
 
-onMounted(() => questionsStore.fetchPool())
+onMounted(() => {
+  questionsStore.fetchPool()
+  studentsStore.fetchAll()
+})
+
+// --- Tirage aléatoire pour toute la classe ---
+const { drawForClass } = useQuestionDraw()
+const drawingClass = ref(false)
+const theoreticalTarget = computed(() => authStore.selectedClass?.theoreticalCount ?? 3)
+
+async function drawAllStudents() {
+  const classId = authStore.selectedClassId
+  if (!classId || students.value.length === 0) return
+  const confirmed = await confirm({
+    title: 'Tirage pour toute la classe ?',
+    message: `Chaque élève sera complété jusqu'à ${theoreticalTarget.value} question(s) théorique(s). Les questions déjà attribuées sont conservées.`,
+    confirmLabel: 'Lancer le tirage',
+    confirmColor: 'primary',
+  })
+  if (!confirmed) return
+
+  drawingClass.value = true
+  try {
+    const res = await drawForClass(classId, students.value.map(s => s.id), theoreticalTarget.value)
+    toast.add({
+      title: res.questions > 0 ? 'Tirage terminé' : 'Aucune question ajoutée',
+      description: `${res.questions} question(s) attribuée(s) à ${res.students} élève(s).`,
+      icon: 'i-heroicons-sparkles',
+      color: res.questions > 0 ? 'green' : 'gray',
+    })
+  } catch (err) {
+    console.error('[questions] Erreur tirage classe:', err)
+    toast.add({ title: 'Erreur lors du tirage', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    drawingClass.value = false
+  }
+}
 
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
@@ -97,14 +136,27 @@ async function handleUpdate(payload: Question) {
           <h1 class="page-title">Pool de questions théoriques</h1>
           <p class="page-subtitle mono">Questions communes attribuables aux élèves</p>
         </div>
-        <UButton
-          icon="i-heroicons-plus"
-          color="primary"
-          size="sm"
-          @click="openNew"
-        >
-          Nouvelle question
-        </UButton>
+        <div class="header-actions">
+          <UButton
+            v-if="authStore.isTeacher"
+            icon="i-heroicons-sparkles"
+            variant="soft"
+            size="sm"
+            :loading="drawingClass"
+            :disabled="theoreticalQs.length === 0 || students.length === 0"
+            @click="drawAllStudents"
+          >
+            Tirage pour la classe
+          </UButton>
+          <UButton
+            icon="i-heroicons-plus"
+            color="primary"
+            size="sm"
+            @click="openNew"
+          >
+            Nouvelle question
+          </UButton>
+        </div>
       </div>
 
       <div class="q-counts">
@@ -173,6 +225,8 @@ async function handleUpdate(payload: Question) {
   letter-spacing: -0.03em; margin: 0 0 0.25rem;
 }
 .page-subtitle { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-text-muted); margin: 0; }
+
+.header-actions { display: flex; gap: 0.5rem; }
 
 .q-counts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .q-count-chip {

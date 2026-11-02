@@ -50,6 +50,8 @@ async function createClass() {
       pauseInterval: 4,
       pauseDuration: 15,
       pausePositions: [],
+      theoreticalCount: 3,
+      practicalCount: 3,
     })
 
     // Recharger les classes et sélectionner la nouvelle
