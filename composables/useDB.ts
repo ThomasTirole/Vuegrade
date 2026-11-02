@@ -438,6 +438,18 @@ export const useDB = () => {
       return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
     },
 
+    /** Toutes les questions d'une classe (pool théorique + pratiques des élèves) — export */
+    async getAllForClass(classId: string): Promise<Question[]> {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('class_id', classId)
+        .order('type')
+        .order('created_at')
+      if (error) throw error
+      return data.map(mapQuestion)
+    },
+
     async getAssignedForStudent(studentId: string): Promise<Question[]> {
       const { data: assignedData, error: assignedError } = await supabase
         .from('student_questions')
@@ -543,6 +555,16 @@ export const useDB = () => {
         .single()
       if (error) throw error
       return mapGrade(data)
+    },
+
+    /** Sessions (avec notes) de tous les élèves d'une classe — export */
+    async getSessionsForClass(classId: string): Promise<OralSession[]> {
+      const { data, error } = await supabase
+        .from('oral_sessions')
+        .select('*, oral_grades(*), students!inner(class_id)')
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return data.map(mapSession)
     },
 
     /** Nombre de notes déjà saisies pour une classe (avertissement avant changement de barème) */

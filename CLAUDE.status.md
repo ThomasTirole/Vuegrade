@@ -106,8 +106,8 @@
 - [x] 1. Questions disparues après la pause (sessions en double) ✨ Session 10
 - [x] 2. Experts ne peuvent plus ajouter/modifier/supprimer d'élèves ✨ Session 10
 - [x] 3. Enseignant dans « Je suis : » (rechargement évaluateurs) ✨ Session 10
-- [ ] 4. Drag & drop ordre de passage (lot C)
-- [ ] 5. Export JSON / CSV (lot C)
+- [x] 4. Drag & drop ordre de passage dans /oral ✨ Session 10
+- [x] 5. Export CSV des notes + sauvegarde JSON (Paramètres) ✨ Session 10
 - [x] 6. Tirage aléatoire des questions théoriques ✨ Session 10
 - [x] 7. Pool limité à la classe sélectionnée ✨ Session 10
 - [x] 8. Remarques globales par oral ✨ Session 10
@@ -184,6 +184,7 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
 | 10 | Sessions d'oral en double → questions invisibles après une erreur réseau | ✅ Corrigé |
 | 11 | « Sélectionner du pool » affichait les questions de toutes les classes | ✅ Corrigé |
 | 12 | Numérotation T-X calculée sur toutes les classes | ✅ Corrigé |
+| 13 | Pauses manuelles enregistrées dans la table legacy `settings` (partagée) | ✅ Corrigé (`classes.pause_positions`) |
 | 14 | Note globale = moyenne simple, pondération T/P absente | ✅ Corrigé (`utils/grading.ts`) |
 
 ---
@@ -216,7 +217,6 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
 | # | Description | Fichier | Priorité |
 |---|---|---|---|
 | 4 | `pages/students/[id].vue` : import `StudentCard` manquant pour le gitflow | `pages/students/[id].vue` | LOW |
-| 13 | Pauses manuelles de `/oral` enregistrées dans la table legacy `settings` au lieu de la classe | `pages/oral.vue` | MEDIUM (lot C) |
 
 ---
 

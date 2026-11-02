@@ -94,6 +94,24 @@ const durationOptions = [
   { label: '15 min', value: 15 }
 ]
 
+// --- Export ---
+const { exportJson, exportGradesCsv } = useExport()
+const exporting = ref<'json' | 'csv' | null>(null)
+
+async function runExport(kind: 'json' | 'csv') {
+  if (!currentClass.value) return
+  exporting.value = kind
+  try {
+    if (kind === 'json') await exportJson(currentClass.value)
+    else await exportGradesCsv(currentClass.value)
+  } catch (err) {
+    console.error('[settings] Erreur export:', err)
+    toast.add({ title: 'Erreur lors de l\'export', icon: 'i-heroicons-x-circle', color: 'red' })
+  } finally {
+    exporting.value = null
+  }
+}
+
 // --- Barème ---
 const gradesCount = ref(0)
 const scaleOptions = [
@@ -351,6 +369,38 @@ function updatePauseDuration(pause: ManualPause, duration: number) {
         <div class="form-actions">
           <UButton @click="saveSettings" :loading="saving" icon="i-heroicons-check" size="sm">
             Enregistrer
+          </UButton>
+        </div>
+      </section>
+
+      <!-- Export (enseignant uniquement) -->
+      <section v-if="isTeacher" class="settings-section">
+        <h2 class="section-title">
+          <UIcon name="i-heroicons-arrow-down-tray" />
+          Export & sauvegarde
+        </h2>
+        <p class="section-desc">
+          Notes de la classe en CSV (Excel), ou sauvegarde complète en JSON : élèves, questions, attributions, sessions et notes.
+        </p>
+        <div class="export-actions">
+          <UButton
+            icon="i-heroicons-table-cells"
+            size="sm"
+            :loading="exporting === 'csv'"
+            :disabled="!!exporting"
+            @click="runExport('csv')"
+          >
+            Notes (CSV)
+          </UButton>
+          <UButton
+            icon="i-heroicons-circle-stack"
+            size="sm"
+            variant="outline"
+            :loading="exporting === 'json'"
+            :disabled="!!exporting"
+            @click="runExport('json')"
+          >
+            Sauvegarde complète (JSON)
           </UButton>
         </div>
       </section>
@@ -726,6 +776,9 @@ function updatePauseDuration(pause: ManualPause, duration: number) {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Export */
+.export-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 /* Barème */
 .scale-options {
