@@ -52,6 +52,10 @@ async function createClass() {
       pausePositions: [],
       theoreticalCount: 3,
       practicalCount: 3,
+      gradingScale: 'grade',
+      maxPoints: 3,
+      theoreticalWeight: 1,
+      practicalWeight: 1.5,
     })
 
     // Recharger les classes et sélectionner la nouvelle

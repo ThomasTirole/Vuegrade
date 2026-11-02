@@ -545,6 +545,16 @@ export const useDB = () => {
       return mapGrade(data)
     },
 
+    /** Nombre de notes déjà saisies pour une classe (avertissement avant changement de barème) */
+    async countGradesForClass(classId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from('oral_grades')
+        .select('id, students!inner(class_id)', { count: 'exact', head: true })
+        .eq('students.class_id', classId)
+      if (error) throw error
+      return count ?? 0
+    },
+
     /** Remarques globales de l'oral (partagées entre évaluateurs) */
     async updateSessionNotes(sessionId: string, notes: string): Promise<void> {
       const { error } = await supabase
@@ -749,6 +759,11 @@ function mapClass(d: Record<string, unknown>): Class {
     pausePositions: d.pause_positions as { position: number; duration: number }[],
     theoreticalCount: (d.theoretical_count as number) ?? 3,
     practicalCount: (d.practical_count as number) ?? 3,
+    gradingScale: (d.grading_scale as Class['gradingScale']) ?? 'grade',
+    maxPoints: (d.max_points as number) ?? 3,
+    // numeric PostgreSQL peut arriver en string selon le client
+    theoreticalWeight: Number(d.theoretical_weight ?? 1),
+    practicalWeight: Number(d.practical_weight ?? 1.5),
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }

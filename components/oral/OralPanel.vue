@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { calculateFinalScore, SCORE_LABELS } from '~/types'
 import type { Question, OralSession, OralGrade, User } from '~/types'
+import { averageScore, computeOralResult, formatNumber, gradingFromClass, scoreLevel, scoreValues } from '~/utils/grading'
 
 const props = defineProps<{ studentId: string }>()
 
@@ -90,21 +90,16 @@ function getScore(questionId: string, expertId: string): number | null {
   return grade?.score ?? null
 }
 
-// Note finale pour une question (moyenne des évaluateurs)
-function getQuestionFinal(questionId: string): number | null {
-  const scores = evaluators.value
-    .map(e => getScore(questionId, e.id))
-    .filter((s): s is number => s !== null)
-  return calculateFinalScore(scores)
+// Barème et pondération de la classe
+const grading = computed(() => gradingFromClass(authStore.selectedClass))
+
+// Moyenne des évaluateurs pour une question (non arrondie)
+function getQuestionAverage(questionId: string): number | null {
+  return averageScore(evaluators.value.map(e => getScore(questionId, e.id)))
 }
 
-// Score global de l'élève
-const globalScore = computed(() => {
-  const questionFinals = questions.value
-    .map(q => getQuestionFinal(q.id))
-    .filter((s): s is number => s !== null)
-  return calculateFinalScore(questionFinals)
-})
+// Note globale pondérée (provisoire tant que toutes les questions ne sont pas notées)
+const result = computed(() => computeOralResult(questions.value, getQuestionAverage, grading.value))
 
 // Crée ou démarre une session (retourne la session existante si un autre évaluateur l'a déjà créée)
 async function startSession() {
@@ -156,6 +151,7 @@ const isCompleted = computed(() => session.value?.status === 'completed')
 // Sauvegarde une note
 async function saveScore(questionId: string, score: number) {
   if (!session.value || !currentExpertId.value) return
+  if (!scoreValues(grading.value).includes(score)) return
   saving.value = questionId
   try {
     const newGrade = await db.oral.upsertGrade({
@@ -273,10 +269,22 @@ function getDisplayRef(question: Question, index: number): string {
     </div>
 
     <!-- Score global -->
-    <div class="score-summary" v-if="globalScore !== null">
-      <span class="score-label">Note globale</span>
-      <span class="score-final" :class="`score-${Math.round(globalScore)}`">
-        {{ globalScore.toFixed(1) }}
+    <div class="score-summary" v-if="result">
+      <div class="score-label">
+        <span>Note globale</span>
+        <span class="score-detail">
+          <template v-if="result.points !== undefined">
+            {{ formatNumber(result.points) }} / {{ formatNumber(result.maxPoints!) }} pts ·
+          </template>
+          exacte {{ formatNumber(result.exactGrade) }}
+          · T ×{{ formatNumber(grading.theoreticalWeight) }} / P ×{{ formatNumber(grading.practicalWeight) }}
+          <template v-if="result.gradedCount < result.totalCount">
+            · provisoire ({{ result.gradedCount }}/{{ result.totalCount }} questions notées)
+          </template>
+        </span>
+      </div>
+      <span class="score-final" :class="`score-${scoreLevel(result.grade, { ...grading, scale: 'grade' })}`">
+        {{ result.grade.toFixed(1) }}
       </span>
       <span class="score-max">/ 6</span>
       <UButton
@@ -335,6 +343,7 @@ function getDisplayRef(question: Question, index: number): string {
           :evaluators="evaluators"
           :session="session"
           :grades="grades"
+          :grading="grading"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -355,6 +364,7 @@ function getDisplayRef(question: Question, index: number): string {
           :evaluators="evaluators"
           :session="session"
           :grades="grades"
+          :grading="grading"
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
@@ -454,7 +464,12 @@ function getDisplayRef(question: Question, index: number): string {
   font-size: 0.75rem;
   color: var(--c-text-muted);
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
+
+.score-detail { font-size: 0.68rem; opacity: 0.8; }
 
 .score-final {
   font-family: var(--font-mono);

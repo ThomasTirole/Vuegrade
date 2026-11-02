@@ -35,6 +35,11 @@ et adaptation à la fin de GitHub Classroom.
 - **Remarques globales par oral** (`feature/oral-remarks`) : `oral_sessions.notes`, sauvegarde auto, synchro realtime
 - **Difficulté des questions** (`feature/question-difficulty`) : colonne `questions.difficulty`, badge, filtre, sélection
 - **Tirage aléatoire** (`feature/random-question-draw`) : `classes.theoretical_count/practical_count`, tirage par élève et pour la classe
+- **Barème paramétrable + pondération** (`feature/grading-scale`)
+  - `classes.grading_scale` ('grade' | 'points'), `max_points`, `theoretical_weight` (1.0), `practical_weight` (1.5)
+  - `utils/grading.ts` = source unique des formules ; note finale arrondie au 0.5, valeur exacte affichée, « provisoire » tant que tout n'est pas noté
+  - Points : Σ(poids × pts) / Σ(poids × max) × 5 + 1 (formule de Steve)
+  - Contrainte `oral_grades.score` élargie à 0..20 (borne réelle contrôlée par l'app selon la classe)
 - Initiales SFA (Steve Fallet) et LMO (Moine Laurent) renseignées
 
 ### Migrations Supabase
@@ -52,7 +57,6 @@ et adaptation à la fin de GitHub Classroom.
 ### Prochaines étapes
 - [ ] Lot C : drag & drop ordre de passage (/oral) + pauses manuelles à rattacher à la classe (bug : stockées dans `settings` legacy)
 - [ ] Lot C : export JSON (backup) + CSV des notes
-- [ ] Lot D : barème paramétrable (1–6 ou points) + pondération T/P
 - [ ] Point 9 (note de présentation) : en attente de décision
 - [ ] Merge `develop` → `main` après tests de l'enseignant
 
