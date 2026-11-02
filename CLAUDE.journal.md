@@ -10,6 +10,54 @@
 
 ---
 
+## Session 10 — 2026-11-02
+
+### Objectif de la session
+Reprise du projet après 6 mois, correction des retours de Steve Fallet (oraux ESIG de juin) avant les oraux du **17.11.2026**,
+et adaptation à la fin de GitHub Classroom.
+
+### Contexte
+- Projet Supabase en pause depuis mai → relancé, données intactes
+- Retours de Steve (11 points) triés en lots : A (bugs critiques), B (oral), C (organisation), D (barème), E (fin Classroom)
+
+### Réalisé
+- **Bug #10 — questions disparues après la pause** (`fix/oral-duplicate-sessions`)
+  - Cause : une erreur de chargement affichait « Démarrer la session » → 2e session créée → `maybeSingle()` échouait ensuite à chaque ouverture
+  - 28 sessions vides en double supprimées, contrainte `unique(student_id)` sur `oral_sessions`
+  - `createSession` retourne la session existante (code 23505), OralPanel affiche l'erreur + bouton Réessayer
+  - Évaluateurs rechargés quand la classe sélectionnée change (cas « enseignant absent de Je suis : »)
+- **Pool limité à la classe** (`fix/question-pool-by-class`) + `class_id` renseigné sur les questions pratiques
+- **Experts en lecture seule sur les élèves** (`fix/experts-readonly-students`) : boutons masqués + middleware
+- **Fin de GitHub Classroom** (`feature/personal-repos-vercel`, `feature/vercel-detect`)
+  - Formulaire élève : URL du repo collée → username déduit ; URL Vercel saisie ou « Détecter » (champ Website du repo, puis `<repo>.vercel.app`)
+  - Composant `RepoCheck` : public / privé accessible / introuvable (formulaires + fiche élève)
+  - Champs org/template retirés des paramètres de classe ; template GitHub Pages archivé dans `docs/archive/`
+- **Remarques globales par oral** (`feature/oral-remarks`) : `oral_sessions.notes`, sauvegarde auto, synchro realtime
+- **Difficulté des questions** (`feature/question-difficulty`) : colonne `questions.difficulty`, badge, filtre, sélection
+- **Tirage aléatoire** (`feature/random-question-draw`) : `classes.theoretical_count/practical_count`, tirage par élève et pour la classe
+- Initiales SFA (Steve Fallet) et LMO (Moine Laurent) renseignées
+
+### Migrations Supabase
+- `unique_oral_session_per_student`, `add_difficulty_to_questions`, `add_question_counts_to_classes`
+
+### Décisions techniques
+- **Repos élèves publics recommandés** : aucun accès à gérer. Privé = collaborateur + token classic `repo` (fine-grained ne couvre pas les repos personnels d'autres comptes)
+- **Tirage** : priorité aux questions les moins attribuées (tout le pool avant doublon), puis équilibre des difficultés
+- **Remarques** : un champ global partagé (pas un par évaluateur)
+
+### Problèmes rencontrés
+- Le MCP Supabase refuse les `DELETE` simples (confirmation non affichée) → élèves de test DevMobile / Zakaria Eddini à supprimer depuis l'app
+- La note globale est une moyenne simple : la pondération T ×1.0 / P ×1.5 n'est **pas** appliquée → lot D
+
+### Prochaines étapes
+- [ ] Lot C : drag & drop ordre de passage (/oral) + pauses manuelles à rattacher à la classe (bug : stockées dans `settings` legacy)
+- [ ] Lot C : export JSON (backup) + CSV des notes
+- [ ] Lot D : barème paramétrable (1–6 ou points) + pondération T/P
+- [ ] Point 9 (note de présentation) : en attente de décision
+- [ ] Merge `develop` → `main` après tests de l'enseignant
+
+---
+
 ## Session 9 — 2026-05-12
 
 ### Objectif de la session
