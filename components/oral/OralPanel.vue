@@ -179,6 +179,49 @@ async function saveScore(questionId: string, score: number) {
   }
 }
 
+// ── Remarques globales (champ partagé, sauvegarde auto) ──
+const notesDraft = ref('')
+const notesFocused = ref(false)
+const notesStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+let notesTimer: ReturnType<typeof setTimeout> | null = null
+
+// Synchronise depuis la session (chargement + realtime), sauf pendant la saisie locale
+watch(() => session.value?.notes, (notes) => {
+  if (!notesFocused.value) notesDraft.value = notes ?? ''
+}, { immediate: true })
+
+function onNotesInput() {
+  if (notesTimer) clearTimeout(notesTimer)
+  notesTimer = setTimeout(saveNotes, 800)
+}
+
+async function saveNotes() {
+  if (notesTimer) {
+    clearTimeout(notesTimer)
+    notesTimer = null
+  }
+  if (!session.value || notesDraft.value === (session.value.notes ?? '')) return
+  notesStatus.value = 'saving'
+  try {
+    await db.oral.updateSessionNotes(session.value.id, notesDraft.value)
+    session.value.notes = notesDraft.value
+    notesStatus.value = 'saved'
+  } catch (err) {
+    console.error('[OralPanel] Erreur sauvegarde remarques:', err)
+    notesStatus.value = 'error'
+  }
+}
+
+function onNotesBlur() {
+  notesFocused.value = false
+  saveNotes()
+}
+
+onBeforeUnmount(() => {
+  // Ne pas perdre une saisie en cours si on change d'élève
+  if (notesTimer) saveNotes()
+})
+
 const theoreticalQs = computed(() => questions.value.filter(q => q.type === 'theoretical'))
 const practicalQs = computed(() => questions.value.filter(q => q.type === 'practical'))
 
@@ -315,6 +358,28 @@ function getDisplayRef(question: Question, index: number): string {
           :current-expert-id="currentExpertId"
           :saving="saving === q.id"
           @score="(score) => saveScore(q.id, score)"
+        />
+      </div>
+
+      <!-- Remarques globales de l'oral -->
+      <div class="question-section">
+        <h3 class="section-title">
+          <UIcon name="i-heroicons-chat-bubble-left-ellipsis" />
+          Remarques
+          <span class="notes-status mono" :class="`notes-status--${notesStatus}`">
+            <template v-if="notesStatus === 'saving'">enregistrement…</template>
+            <template v-else-if="notesStatus === 'saved'">enregistré</template>
+            <template v-else-if="notesStatus === 'error'">erreur d'enregistrement</template>
+          </span>
+        </h3>
+        <UTextarea
+          v-model="notesDraft"
+          :rows="4"
+          autoresize
+          placeholder="Remarques sur l'oral (partagées entre évaluateurs)…"
+          @focus="notesFocused = true"
+          @blur="onNotesBlur"
+          @update:model-value="onNotesInput"
         />
       </div>
     </template>
@@ -459,6 +524,16 @@ function getDisplayRef(question: Question, index: number): string {
   border: 1px dashed var(--c-border);
   border-radius: 12px;
 }
+
+/* Remarques */
+.notes-status {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+.notes-status--saved { color: var(--c-vue); }
+.notes-status--error { color: var(--c-error); }
 
 .no-session--error {
   color: var(--c-error);

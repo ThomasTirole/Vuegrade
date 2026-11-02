@@ -545,6 +545,15 @@ export const useDB = () => {
       return mapGrade(data)
     },
 
+    /** Remarques globales de l'oral (partagées entre évaluateurs) */
+    async updateSessionNotes(sessionId: string, notes: string): Promise<void> {
+      const { error } = await supabase
+        .from('oral_sessions')
+        .update({ notes: notes || null })
+        .eq('id', sessionId)
+      if (error) throw error
+    },
+
     async updateSessionTotal(sessionId: string, totalScore: number): Promise<void> {
       const { error } = await supabase
         .from('oral_sessions')
