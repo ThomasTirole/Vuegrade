@@ -9,6 +9,7 @@ const props = defineProps<{
 }>()
 
 const db = useDB()
+const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -125,7 +126,8 @@ function openEditPractical(q: Question) {
 }
 
 async function savePractical(payload: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) {
-  await db.questions.create(payload)
+  // Rattache la question pratique à la classe sélectionnée
+  await db.questions.create({ ...payload, classId: authStore.selectedClassId ?? undefined })
   showPracticalModal.value = false
   toast.add({
     title: 'Question pratique créée',
