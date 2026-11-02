@@ -313,7 +313,11 @@ function editToken() {
                 </li>
                 <li>Cliquer sur <strong>"Generate new token"</strong> puis <strong>"Generate new token (classic)"</strong></li>
                 <li>Donner un nom au token (ex: "VueGrade")</li>
-                <li>Sélectionner uniquement le scope <code>read:org</code></li>
+                <li>
+                  Repos élèves publics : aucun scope n'est nécessaire (le token augmente juste la limite à 5000 req/h).
+                  Repos privés : cocher le scope <code>repo</code> et demander à l'élève de vous ajouter comme collaborateur
+                  (un token « fine-grained » ne donne pas accès aux repos personnels d'autres comptes)
+                </li>
                 <li>Cliquer sur <strong>"Generate token"</strong></li>
                 <li>Copier le token et le coller ci-dessus</li>
               </ol>

@@ -173,6 +173,11 @@ async function deleteStudent() {
             <span class="info-label">Clé API enseignant</span>
             <code class="info-value mono api-key">{{ student.teacherApiKey }}</code>
           </div>
+          <div class="info-card" v-if="student.repoUrl">
+            <span class="info-label">Accès au repo GitHub</span>
+            <a :href="student.repoUrl" target="_blank" class="info-value mono link-inline">{{ student.repoUrl }}</a>
+            <StudentRepoCheck :repo-url="student.repoUrl" auto />
+          </div>
         </div>
       </div>
 

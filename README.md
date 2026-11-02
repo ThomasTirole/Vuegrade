@@ -58,8 +58,7 @@ vugrade/
 ├── supabase/
 │   └── schema.sql              → Schéma base de données
 │
-└── .github/workflows/
-    └── deploy-student-template.yml  → GitHub Action pour les élèves
+└── docs/archive/github-pages-template/  → Ancien template GitHub Pages (obsolète)
 ```
 
 ---
@@ -83,8 +82,7 @@ cp .env.example .env
 Remplir dans `.env` :
 - `SUPABASE_URL` et `SUPABASE_ANON_KEY` → depuis [supabase.com/dashboard](https://supabase.com/dashboard)
 - `SUPABASE_SERVICE_KEY` → clé service role (uniquement serveur)
-- `GITHUB_TOKEN` → Personal Access Token (scopes : `repo`, `read:org`)
-- `GITHUB_ORG` → nom de l'organisation GitHub Classroom (ex: `divtec-cejef`)
+- Le token GitHub de chaque enseignant se saisit dans l'app (`/profile`), chiffré en BDD
 
 ### 3. Initialiser la base de données
 
@@ -112,30 +110,34 @@ npm run dev
 
 ---
 
-## GitHub Classroom — Template élève
+## Projets élèves — Repos personnels + Vercel
 
-### Recommandation : GitHub Classroom Assignment
+> GitHub Classroom a été arrêté. Depuis 2026, chaque élève travaille sur un **repo personnel**
+> (`https://github.com/<username>/<repo>`) et déploie son projet sur **Vercel**.
+> L'ancien template GitHub Pages est archivé dans `docs/archive/github-pages-template/`.
 
-1. Créer un **Assignment** dans GitHub Classroom avec le template Vuetify
-2. Le template inclut déjà `.github/workflows/deploy.yml` (GitHub Action de déploiement)
-3. Chaque élève obtient un repo dans l'organisation, dont l'URL est prédictible :
-   `https://github.com/<org>/<assignment-prefix>-<github-username>`
-4. L'URL GitHub Pages se calcule automatiquement :
-   `https://<github-username>.github.io/<repo-name>/`
+### Saisie d'un élève
 
-### GitHub Action dans le template
+1. Coller l'URL du repo → le username GitHub est déduit automatiquement
+2. Cliquer sur **Vérifier l'accès** (public / privé accessible / introuvable)
+3. Saisir l'URL de production Vercel (`https://<projet>.vercel.app`) — elle n'est pas prédictible
 
-Le fichier `.github/workflows/deploy-student-template.yml` contient la GitHub Action à inclure dans votre template. Elle :
-- Se déclenche sur chaque push sur `main`
-- Build le projet Vite avec `npm run build`
-- Déploie sur GitHub Pages automatiquement
-- Injecte les secrets (clé API) depuis les Settings GitHub
+### Accès au versioning (gitflow)
 
-### Prérequis côté élève
+| Repo | Prérequis |
+|---|---|
+| **Public** (recommandé) | Aucun. Le token enseignant augmente seulement la limite à 5000 req/h |
+| **Privé** | L'élève ajoute l'enseignant comme collaborateur + token **classic** avec scope `repo` dans `/profile` (un token fine-grained ne couvre pas les repos personnels d'autres comptes) |
 
-Dans les **Settings** de leur repo :
-- **Pages** → Source → **GitHub Actions** (pas "Deploy from a branch")
-- **Secrets** → Ajouter `VITE_API_KEY` si leur API en nécessite une
+### Prérequis côté élève (Vercel)
+
+- Importer le repo GitHub dans Vercel (déploiement automatique à chaque push sur `main`)
+- **Environment Variables** → ajouter `VITE_API_KEY` si leur API en nécessite une
+- Vue Router en mode history : ajouter un `vercel.json` à la racine pour éviter les 404 au rechargement :
+
+```json
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+```
 
 ---
 

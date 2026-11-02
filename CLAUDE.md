@@ -186,7 +186,7 @@ Quand on te demande de créer/modifier des tables, utilise les outils MCP Supaba
 2. **Supabase service key** — uniquement côté serveur (`runtimeConfig.supabaseServiceKey`)
 3. **Realtime Supabase** — à implémenter pour la notation orale (plusieurs experts simultanés)
 4. **GitHub API rate limit** — 60 req/h sans auth, 5000 avec token. Toujours vérifier les erreurs 403
-5. **Base path Vite** — le template étudiant utilise `VITE_BASE_URL` pour GitHub Pages
+5. **Repos élèves** — GitHub Classroom est arrêté : repos personnels des élèves + déploiement Vercel. Les URLs ne sont plus générées (org/template obsolètes), elles sont saisies dans le formulaire élève
 
 ---
 
