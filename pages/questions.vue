@@ -2,7 +2,8 @@
 // Page du pool de questions théoriques uniquement
 // Les questions pratiques sont créées directement sur la fiche élève
 
-import type { Question } from '~/types'
+import { DIFFICULTY_LABELS } from '~/types'
+import type { Question, QuestionDifficulty } from '~/types'
 
 const questionsStore = useQuestionsStore()
 const { pool, loading } = storeToRefs(questionsStore)
@@ -16,6 +17,28 @@ const { confirm } = useConfirm()
 
 // Filtrer uniquement les questions théoriques (pool)
 const theoreticalQs = computed(() => pool.value.filter(q => q.type === 'theoretical'))
+
+// Filtre par difficulté ('all' = toutes, 'none' = non définie)
+type DifficultyFilter = 'all' | 'none' | QuestionDifficulty
+const difficultyFilter = ref<DifficultyFilter>('all')
+
+const difficultyFilters = computed(() => {
+  const count = (f: DifficultyFilter) => theoreticalQs.value.filter(q => matchesDifficulty(q, f)).length
+  return [
+    { value: 'all' as DifficultyFilter, label: 'Toutes', count: theoreticalQs.value.length },
+    ...(Object.entries(DIFFICULTY_LABELS) as [QuestionDifficulty, string][])
+      .map(([value, label]) => ({ value: value as DifficultyFilter, label, count: count(value) })),
+    { value: 'none' as DifficultyFilter, label: 'Non définie', count: count('none') },
+  ]
+})
+
+function matchesDifficulty(q: Question, f: DifficultyFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'none') return !q.difficulty
+  return q.difficulty === f
+}
+
+const filteredQs = computed(() => theoreticalQs.value.filter(q => matchesDifficulty(q, difficultyFilter.value)))
 
 function openNew() {
   editingQuestion.value = null
@@ -85,10 +108,16 @@ async function handleUpdate(payload: Question) {
       </div>
 
       <div class="q-counts">
-        <div class="q-count-chip">
-          <span class="mono">{{ theoreticalQs.length }}</span>
-          <span>questions</span>
-        </div>
+        <button
+          v-for="f in difficultyFilters"
+          :key="f.value"
+          class="q-count-chip"
+          :class="[`q-count-chip--${f.value}`, { 'q-count-chip--active': difficultyFilter === f.value }]"
+          @click="difficultyFilter = f.value"
+        >
+          <span class="mono">{{ f.count }}</span>
+          <span>{{ f.label }}</span>
+        </button>
       </div>
     </header>
 
@@ -101,12 +130,15 @@ async function handleUpdate(payload: Question) {
     <!-- Question list -->
     <div v-else class="question-list">
       <UiQuestionCard
-        v-for="q in theoreticalQs"
+        v-for="q in filteredQs"
         :key="q.id"
         :question="q"
         @edit="openEdit(q)"
         @delete="deleteQuestion(q)"
       />
+      <p v-if="theoreticalQs.length > 0 && filteredQs.length === 0" class="muted">
+        Aucune question pour ce filtre.
+      </p>
       <div v-if="theoreticalQs.length === 0" class="empty-state">
         <UIcon name="i-heroicons-document-text" class="empty-icon" />
         <p>Aucune question théorique pour le moment.</p>
@@ -142,7 +174,7 @@ async function handleUpdate(payload: Question) {
 }
 .page-subtitle { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-text-muted); margin: 0; }
 
-.q-counts { display: flex; gap: 0.75rem; }
+.q-counts { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .q-count-chip {
   display: flex; align-items: baseline; gap: 0.35rem;
   padding: 0.4rem 0.875rem;
@@ -150,8 +182,14 @@ async function handleUpdate(payload: Question) {
   border: 1px solid var(--c-border);
   border-radius: 8px;
   font-size: 0.8rem; color: var(--c-text-soft);
+  cursor: pointer; transition: all 0.12s;
 }
+.q-count-chip:hover { border-color: var(--c-text-muted); }
 .q-count-chip .mono { font-size: 1rem; font-weight: 600; color: var(--c-text); }
+.q-count-chip--active { border-color: var(--c-nuxt); color: var(--c-text); }
+.q-count-chip--easy.q-count-chip--active { border-color: var(--c-vue); }
+.q-count-chip--medium.q-count-chip--active { border-color: var(--c-warn); }
+.q-count-chip--hard.q-count-chip--active { border-color: var(--c-error); }
 
 .question-list { display: flex; flex-direction: column; gap: 0.75rem; }
 

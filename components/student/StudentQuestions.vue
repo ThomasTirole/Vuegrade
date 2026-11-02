@@ -210,7 +210,7 @@ async function deletePractical(q: Question) {
           >
             <span class="question-ref mono">{{ getRef('T', idx) }}</span>
             <div class="question-content">
-              <span class="question-title">{{ q.title }}</span>
+              <span class="question-title">{{ q.title }} <UiDifficultyBadge :difficulty="q.difficulty" /></span>
               <p class="question-text">{{ q.question }}</p>
             </div>
             <div class="question-actions">
@@ -275,7 +275,7 @@ async function deletePractical(q: Question) {
           >
             <span class="question-ref mono">{{ getRef('P', idx) }}</span>
             <div class="question-content">
-              <span class="question-title">{{ q.title }}</span>
+              <span class="question-title">{{ q.title }} <UiDifficultyBadge :difficulty="q.difficulty" /></span>
               <p class="question-text">{{ q.question }}</p>
               <div v-if="q.codeSnippet" class="code-indicator mono">
                 <UIcon name="i-heroicons-code-bracket" />

@@ -775,6 +775,7 @@ function mapQuestion(d: Record<string, unknown>): Question {
     codeLanguage: d.code_language as string | undefined,
     studentId: d.student_id as string | null | undefined,
     tags: d.tags as string[] | undefined,
+    difficulty: d.difficulty as Question['difficulty'],
     createdAt: d.created_at as string,
     updatedAt: d.updated_at as string,
   }
