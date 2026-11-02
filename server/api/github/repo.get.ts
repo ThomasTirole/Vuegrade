@@ -58,6 +58,7 @@ export default defineEventHandler(async (event) => {
       createdAt: repoData.created_at,
       updatedAt: repoData.updated_at,
       htmlUrl: repoData.html_url,
+      homepage: repoData.homepage || null,
       language: repoData.language,
       visibility: repoData.visibility,
       openIssues: repoData.open_issues_count,

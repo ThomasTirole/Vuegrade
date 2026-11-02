@@ -114,7 +114,7 @@ async function handleSubmit() {
           <StudentRepoCheck :repo-url="form.repoUrl" class="repo-check-row" />
         </UFormGroup>
         <UFormGroup label="URL du site déployé" hint="URL de production Vercel">
-          <UInput v-model="form.deployUrl" placeholder="https://mon-projet.vercel.app" icon="i-heroicons-globe-alt" />
+          <StudentDeployUrlInput v-model="form.deployUrl" :repo-url="form.repoUrl" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
           <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
