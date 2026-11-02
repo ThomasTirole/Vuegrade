@@ -24,4 +24,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!authStore.isAuthenticated) {
     return navigateTo('/login')
   }
+
+  // Création / édition d'élèves réservées aux enseignants
+  const isStudentEdition = to.path === '/students/new' || /^\/students\/[^/]+\/edit$/.test(to.path)
+  if (isStudentEdition && !authStore.isTeacher) {
+    return navigateTo('/students')
+  }
 })

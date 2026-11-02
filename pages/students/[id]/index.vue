@@ -46,10 +46,12 @@ const tabs = [
 ]
 
 const router = useRouter()
+const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
 async function deleteStudent() {
+  if (!authStore.isTeacher) return
   const confirmed = await confirm({
     title: 'Supprimer cet élève ?',
     message: `Cette action supprimera définitivement "${student.value.name}" ainsi que toutes ses questions et notes associées.`,
@@ -116,12 +118,14 @@ async function deleteStudent() {
             GitHub
           </UButton>
           <UButton
+            v-if="authStore.isTeacher"
             :to="`/students/${studentId}/edit`"
             icon="i-heroicons-pencil"
             variant="ghost"
             size="sm"
           />
           <UButton
+            v-if="authStore.isTeacher"
             icon="i-heroicons-trash"
             variant="ghost"
             color="red"
