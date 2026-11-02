@@ -14,13 +14,15 @@ const emit = defineEmits<{
 }>()
 
 const db = useDB()
+const authStore = useAuthStore()
 const loading = ref(true)
 const poolQuestions = ref<Question[]>([])
 const searchQuery = ref('')
 
 onMounted(async () => {
   try {
-    poolQuestions.value = await db.questions.getTheoreticalPool()
+    // Uniquement le pool de la classe sélectionnée
+    poolQuestions.value = await db.questions.getTheoreticalPool(authStore.selectedClassId ?? undefined)
   } finally {
     loading.value = false
   }
