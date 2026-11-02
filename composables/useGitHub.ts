@@ -40,7 +40,32 @@ export const useGitHub = () => {
     return await $fetch(`/api/github/repo`, { query })
   }
 
-  return { getGitflow, getRepoInfo }
+  /**
+   * Devine l'URL de production Vercel d'un repo élève.
+   * Candidats : champ "Website" du repo GitHub, puis https://<repo>.vercel.app.
+   * Retourne le premier candidat qui répond réellement, sinon null.
+   */
+  async function detectDeployUrl(repoUrl: string): Promise<string | null> {
+    const { repo } = parseRepoUrl(repoUrl)
+    const candidates: string[] = []
+
+    try {
+      const info = await getRepoInfo(repoUrl) as { homepage: string | null }
+      if (info.homepage) candidates.push(info.homepage)
+    } catch {
+      // Repo inaccessible : on tente quand même la convention Vercel
+    }
+    candidates.push(`https://${repo.toLowerCase()}.vercel.app`)
+
+    for (const url of [...new Set(candidates)]) {
+      const res = await $fetch<{ live: boolean }>('/api/check-live', { query: { url } })
+        .catch(() => ({ live: false }))
+      if (res.live) return url
+    }
+    return null
+  }
+
+  return { getGitflow, getRepoInfo, detectDeployUrl }
 }
 
 // ----------------------------------------------------------
