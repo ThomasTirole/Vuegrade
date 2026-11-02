@@ -215,7 +215,7 @@ async function createClass() {
           </button>
         </div>
 
-        <div class="version-tag">v1.2.0 — M294</div>
+        <div class="version-tag">v1.3.0 — M294</div>
       </div>
     </aside>
 
