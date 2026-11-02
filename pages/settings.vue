@@ -76,8 +76,6 @@ async function confirmRemoveExpertFromClass() {
 
 // Formulaire settings éditables (paramètres de la classe)
 const form = reactive({
-  projectTemplate: '',
-  githubOrg: '',
   pauseInterval: 4,
   pauseDuration: 15,
   manualPauses: [] as ManualPause[]
@@ -99,8 +97,6 @@ watch(() => currentClass.value, async (cls) => {
   loading.value = true
   try {
     // Charger les paramètres de la classe
-    form.projectTemplate = cls.projectTemplate || ''
-    form.githubOrg = cls.githubOrg || ''
     form.pauseInterval = cls.pauseInterval
     form.pauseDuration = cls.pauseDuration
     form.manualPauses = cls.pausePositions || []
@@ -123,8 +119,6 @@ async function saveSettings() {
   saving.value = true
   try {
     await db.classes.update(currentClass.value.id, {
-      projectTemplate: form.projectTemplate,
-      githubOrg: form.githubOrg,
       pauseInterval: form.pauseInterval,
       pauseDuration: form.pauseDuration,
       pausePositions: form.manualPauses
@@ -157,17 +151,6 @@ function removePausePosition(pause: ManualPause) {
 function updatePauseDuration(pause: ManualPause, duration: number) {
   pause.duration = duration
 }
-
-// Génère un exemple d'URL pour prévisualisation
-const exampleRepoUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://github.com/${form.githubOrg}/${form.projectTemplate}-{username}`
-})
-
-const exampleDeployUrl = computed(() => {
-  if (!form.githubOrg || !form.projectTemplate) return ''
-  return `https://${form.githubOrg}.github.io/${form.projectTemplate}-{username}`
-})
 </script>
 
 <template>
@@ -312,54 +295,6 @@ const exampleDeployUrl = computed(() => {
           </template>
         </UCard>
       </UModal>
-
-      <!-- Projet config (enseignant uniquement) -->
-      <section v-if="isTeacher" class="settings-section">
-        <h2 class="section-title">
-          <UIcon name="i-simple-icons-github" />
-          Configuration projet
-        </h2>
-        <p class="section-desc">Paramètres pour la génération automatique des URLs des repos élèves.</p>
-
-        <div class="form-grid">
-          <UFormGroup label="Organisation GitHub">
-            <UInput
-              v-model="form.githubOrg"
-              placeholder="divtec-cejef"
-              icon="i-heroicons-building-office"
-            />
-          </UFormGroup>
-          <UFormGroup label="Template de projet">
-            <UInput
-              v-model="form.projectTemplate"
-              placeholder="m294-projet-vuetify"
-              icon="i-heroicons-document-duplicate"
-            />
-          </UFormGroup>
-        </div>
-
-        <div v-if="exampleRepoUrl" class="url-preview">
-          <div class="preview-item">
-            <span class="preview-label">Repo</span>
-            <code class="mono">{{ exampleRepoUrl }}</code>
-          </div>
-          <div class="preview-item">
-            <span class="preview-label">Deploy</span>
-            <code class="mono">{{ exampleDeployUrl }}</code>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <UButton
-            @click="saveSettings"
-            :loading="saving"
-            icon="i-heroicons-check"
-            size="sm"
-          >
-            Enregistrer
-          </UButton>
-        </div>
-      </section>
 
       <!-- Pauses délibération (enseignant uniquement) -->
       <section v-if="isTeacher" class="settings-section">
@@ -675,33 +610,6 @@ const exampleDeployUrl = computed(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
-}
-
-.url-preview {
-  background: var(--c-bg);
-  border: 1px solid var(--c-border-soft);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.preview-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-}
-
-.preview-label {
-  color: var(--c-text-muted);
-  min-width: 50px;
-}
-
-.preview-item code {
-  color: var(--c-nuxt);
-  word-break: break-all;
 }
 
 .form-actions {

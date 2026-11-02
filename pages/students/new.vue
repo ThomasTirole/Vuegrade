@@ -1,18 +1,13 @@
 <!-- pages/students/new.vue — Formulaire création élève -->
 <script setup lang="ts">
+import { parseRepoUrl } from '~/composables/useGitHub'
+
 const router = useRouter()
-const db = useDB()
 const studentsStore = useStudentsStore()
 const toast = useToast()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
-
-// Charger les settings pour la génération automatique des URLs
-const settings = ref<Record<string, string>>({})
-onMounted(async () => {
-  settings.value = await db.settings.getAll()
-})
 
 const form = reactive({
   name: '',
@@ -27,15 +22,14 @@ const form = reactive({
   passageTime: '',
 })
 
-// Calcul automatique des URLs quand le username change
+// Repos personnels des élèves : le username GitHub est déduit de l'URL du repo
 watch(
-  () => form.githubUsername,
-  (username) => {
-    if (username && settings.value.project_template && settings.value.github_org) {
-      const org = settings.value.github_org
-      const template = settings.value.project_template
-      form.repoUrl = `https://github.com/${org}/${template}-${username}`
-      form.deployUrl = `https://${org}.github.io/${template}-${username}`
+  () => form.repoUrl,
+  (url) => {
+    try {
+      form.githubUsername = parseRepoUrl(url.trim()).owner
+    } catch {
+      // URL incomplète pendant la saisie : on ne touche pas au username
     }
   }
 )
@@ -115,11 +109,12 @@ async function handleSubmit() {
       <!-- Section projet -->
       <div class="form-section">
         <h2 class="section-title">Projet</h2>
-        <UFormGroup label="URL du repo GitHub" required hint="Générée automatiquement depuis le username">
-          <UInput v-model="form.repoUrl" placeholder="https://github.com/org/template-username" icon="i-heroicons-link" />
+        <UFormGroup label="URL du repo GitHub" required hint="Repo personnel de l'élève — le username est déduit">
+          <UInput v-model="form.repoUrl" placeholder="https://github.com/johndoe/mon-projet" icon="i-heroicons-link" />
+          <StudentRepoCheck :repo-url="form.repoUrl" class="repo-check-row" />
         </UFormGroup>
-        <UFormGroup label="URL du site déployé" hint="Générée automatiquement">
-          <UInput v-model="form.deployUrl" placeholder="https://org.github.io/template-username" icon="i-heroicons-globe-alt" />
+        <UFormGroup label="URL du site déployé" hint="URL de production Vercel">
+          <UInput v-model="form.deployUrl" placeholder="https://mon-projet.vercel.app" icon="i-heroicons-globe-alt" />
         </UFormGroup>
         <UFormGroup label="Description du projet" required>
           <UTextarea v-model="form.projectDescription" placeholder="Ex: Application de gestion de tâches" :rows="3" />
@@ -230,4 +225,5 @@ async function handleSubmit() {
 }
 
 .mb-4 { margin-bottom: 1rem; }
+.repo-check-row { margin-top: 0.5rem; }
 </style>
