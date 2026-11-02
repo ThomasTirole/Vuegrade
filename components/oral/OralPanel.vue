@@ -6,11 +6,14 @@ const props = defineProps<{ studentId: string }>()
 
 const db = useDB()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const session = ref<OralSession | null>(null)
 const questions = ref<Question[]>([])
 const evaluators = ref<User[]>([]) // Teacher + experts de la classe
 const loading = ref(true)
+const loadError = ref<string | null>(null) // Erreur de chargement (affichée avec bouton Réessayer)
+const starting = ref(false)
 const saving = ref<string | null>(null) // questionId en cours de sauvegarde
 
 // Quel évaluateur suis-je ? (stocké en localStorage pour persistance de session)
@@ -27,30 +30,51 @@ const studentIdRef = toRef(props, 'studentId')
 // Synchronisation realtime des notes et sessions
 useRealtimeGrades(studentIdRef, session, grades)
 
-onMounted(async () => {
+// Charge les évaluateurs dès que la classe est connue (la session auth peut être restaurée après le montage)
+watch(() => authStore.selectedClassId, async (classId) => {
+  if (!classId) return
   try {
-    // Récupère le classId depuis le store auth
-    const classId = authStore.selectedClassId
+    evaluators.value = await db.classes.getEvaluators(classId)
+  } catch (err) {
+    console.error('[OralPanel] Erreur chargement évaluateurs:', err)
+    loadError.value = 'Impossible de charger les évaluateurs.'
+  }
+}, { immediate: true })
 
+onMounted(loadData)
+
+/**
+ * Charge les questions attribuées et la session de l'élève.
+ * En cas d'erreur, on n'affiche PAS « Démarrer la session » (cela créait des doublons) :
+ * on affiche l'erreur avec un bouton Réessayer.
+ */
+async function loadData() {
+  loading.value = true
+  loadError.value = null
+  try {
     const [qs, sess] = await Promise.all([
       // Utilise getAssignedForStudent pour n'avoir que les questions attribuées
       db.questions.getAssignedForStudent(props.studentId),
       db.oral.getSessionByStudent(props.studentId),
     ])
-
-    // Charge les évaluateurs de la classe (teacher + experts)
-    if (classId) {
-      evaluators.value = await db.classes.getEvaluators(classId)
-    }
-
     questions.value = qs
     session.value = sess
     // Initialise les grades depuis la session
     grades.value = sess?.grades ?? []
+  } catch (err) {
+    console.error('[OralPanel] Erreur chargement oral:', err)
+    loadError.value = 'Impossible de charger l\'oral de cet élève. Vérifiez la connexion puis réessayez.'
   } finally {
     loading.value = false
   }
-})
+}
+
+async function retry() {
+  await loadData()
+  if (!loadError.value && authStore.selectedClassId) {
+    evaluators.value = await db.classes.getEvaluators(authStore.selectedClassId)
+  }
+}
 
 // Sélection de l'expert courant
 function selectExpert(id: string) {
@@ -82,12 +106,33 @@ const globalScore = computed(() => {
   return calculateFinalScore(questionFinals)
 })
 
-// Crée ou démarre une session
+// Crée ou démarre une session (retourne la session existante si un autre évaluateur l'a déjà créée)
 async function startSession() {
-  const questionIds = questions.value.map(q => q.id)
-  session.value = await db.oral.createSession(props.studentId, questionIds)
-  await db.oral.updateSessionStatus(session.value.id, 'in_progress')
-  session.value.status = 'in_progress'
+  starting.value = true
+  try {
+    const questionIds = questions.value.map(q => q.id)
+    const sess = await db.oral.createSession(
+      props.studentId,
+      questionIds,
+      authStore.selectedClassId ?? undefined
+    )
+    if (sess.status === 'pending') {
+      await db.oral.updateSessionStatus(sess.id, 'in_progress')
+      sess.status = 'in_progress'
+    }
+    session.value = sess
+    grades.value = sess.grades
+  } catch (err) {
+    console.error('[OralPanel] Erreur démarrage session:', err)
+    toast.add({
+      title: 'Impossible de démarrer la session',
+      description: 'Vérifiez la connexion puis réessayez.',
+      icon: 'i-heroicons-exclamation-triangle',
+      color: 'red',
+    })
+  } finally {
+    starting.value = false
+  }
 }
 
 // Termine la session
@@ -204,10 +249,30 @@ function getDisplayRef(question: Question, index: number): string {
       </UButton>
     </div>
 
+    <!-- Chargement -->
+    <div v-if="loading" class="no-session">
+      <UIcon name="i-heroicons-arrow-path" class="spin" />
+    </div>
+
+    <!-- Erreur de chargement -->
+    <div v-else-if="loadError" class="no-session no-session--error">
+      <UIcon name="i-heroicons-exclamation-triangle" class="error-icon" />
+      <p>{{ loadError }}</p>
+      <UButton @click="retry" icon="i-heroicons-arrow-path" color="red" variant="soft" size="sm">
+        Réessayer
+      </UButton>
+    </div>
+
     <!-- Pas de session -->
-    <div v-if="!session" class="no-session">
+    <div v-else-if="!session" class="no-session">
       <p>Aucune session d'oral démarrée pour cet élève.</p>
-      <UButton @click="startSession" icon="i-heroicons-play" color="primary" size="sm">
+      <UButton
+        @click="startSession"
+        :loading="starting"
+        icon="i-heroicons-play"
+        color="primary"
+        size="sm"
+      >
         Démarrer la session
       </UButton>
     </div>
@@ -394,6 +459,16 @@ function getDisplayRef(question: Question, index: number): string {
   border: 1px dashed var(--c-border);
   border-radius: 12px;
 }
+
+.no-session--error {
+  color: var(--c-error);
+  border-color: color-mix(in srgb, var(--c-error) 40%, transparent);
+}
+
+.error-icon { font-size: 1.75rem; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; font-size: 1.25rem; }
 
 /* Session status */
 .session-status {
