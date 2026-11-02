@@ -477,15 +477,19 @@ export const useDB = () => {
   // ----------------------------------------------------------
   const oral = {
     async getSessionByStudent(studentId: string): Promise<OralSession | null> {
+      // order + limit : reste robuste même si des doublons existaient (contrainte unique en BDD)
       const { data, error } = await supabase
         .from('oral_sessions')
         .select(`*, oral_grades(*)`)
         .eq('student_id', studentId)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
       if (error) throw error
       return data ? mapSession(data) : null
     },
 
+    /** Crée la session d'un élève, ou retourne celle existante (une seule session par élève) */
     async createSession(studentId: string, questionIds: string[], classId?: string): Promise<OralSession> {
       const insert: Record<string, unknown> = {
         student_id: studentId,
@@ -499,6 +503,12 @@ export const useDB = () => {
         .insert(insert)
         .select()
         .single()
+
+      // 23505 = violation d'unicité : un autre évaluateur a déjà démarré la session
+      if (error?.code === '23505') {
+        const existing = await oral.getSessionByStudent(studentId)
+        if (existing) return existing
+      }
       if (error) throw error
       return mapSession(data)
     },
