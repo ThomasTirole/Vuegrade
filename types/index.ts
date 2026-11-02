@@ -42,6 +42,12 @@ export interface Class {
   theoreticalCount: number
   /** Nombre de questions pratiques visé par élève */
   practicalCount: number
+  /** Barème : note 1–6 ou points 0–maxPoints par question */
+  gradingScale: 'grade' | 'points'
+  maxPoints: number
+  /** Pondération des questions théoriques / pratiques */
+  theoreticalWeight: number
+  practicalWeight: number
   createdAt: string
   updatedAt: string
 }

@@ -112,7 +112,7 @@
 - [x] 7. Pool limité à la classe sélectionnée ✨ Session 10
 - [x] 8. Remarques globales par oral ✨ Session 10
 - [ ] 9. Note présentation / prestance — **en attente de décision**
-- [ ] 10. Barème paramétrable + pondération T ×1.0 / P ×1.5 (lot D)
+- [x] 10. Barème paramétrable (note 1–6 ou points) + pondération T ×1.0 / P ×1.5 ✨ Session 10
 - [x] 11. Difficulté des questions ✨ Session 10
 - [x] Fin GitHub Classroom : repos personnels + Vercel ✨ Session 10
 
@@ -184,6 +184,7 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
 | 10 | Sessions d'oral en double → questions invisibles après une erreur réseau | ✅ Corrigé |
 | 11 | « Sélectionner du pool » affichait les questions de toutes les classes | ✅ Corrigé |
 | 12 | Numérotation T-X calculée sur toutes les classes | ✅ Corrigé |
+| 14 | Note globale = moyenne simple, pondération T/P absente | ✅ Corrigé (`utils/grading.ts`) |
 
 ---
 
@@ -216,7 +217,6 @@ Supabase (Session 2 + Session 4 + Session 8 + Session 9) :
 |---|---|---|---|
 | 4 | `pages/students/[id].vue` : import `StudentCard` manquant pour le gitflow | `pages/students/[id].vue` | LOW |
 | 13 | Pauses manuelles de `/oral` enregistrées dans la table legacy `settings` au lieu de la classe | `pages/oral.vue` | MEDIUM (lot C) |
-| 14 | Note globale = moyenne simple, pondération T ×1.0 / P ×1.5 absente | `components/oral/OralPanel.vue` | HIGH (lot D) |
 
 ---
 
