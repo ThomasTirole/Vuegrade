@@ -10,6 +10,7 @@ const studentsStore = useStudentsStore()
 const { students, loading } = storeToRefs(studentsStore)
 const authStore = useAuthStore()
 const db = useDB()
+const toast = useToast()
 
 // Settings pour les pauses (depuis la classe sélectionnée)
 const pauseInterval = ref(4) // Pause tous les X élèves (0 = désactivé)
@@ -96,13 +97,28 @@ function closePauseMenu() {
   showPauseMenu.value = null
 }
 
+// Enregistre les pauses manuelles sur la classe sélectionnée
+// (auparavant dans la table legacy `settings`, partagée entre toutes les classes)
+async function savePauses() {
+  const classId = authStore.selectedClassId
+  if (!classId) return
+  try {
+    await db.classes.update(classId, { pausePositions: manualPauses.value })
+    const cls = authStore.classes.find(c => c.id === classId)
+    if (cls) cls.pausePositions = [...manualPauses.value]
+  } catch (err) {
+    console.error('[oral] Erreur sauvegarde pauses:', err)
+    toast.add({ title: 'Impossible d\'enregistrer la pause', icon: 'i-heroicons-x-circle', color: 'red' })
+  }
+}
+
 // Ajouter une pause manuelle avec durée
 async function addPauseWithDuration(index: number, duration: number) {
   const position = index + 1
   if (!isManualPause(position)) {
     manualPauses.value.push({ position, duration })
     manualPauses.value.sort((a, b) => a.position - b.position)
-    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+    await savePauses()
   }
   closePauseMenu()
 }
@@ -117,7 +133,7 @@ async function updatePauseDuration(position: number, duration: number) {
   const pause = getManualPause(position)
   if (pause) {
     pause.duration = duration
-    await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+    await savePauses()
   }
   expandedDuration.value = null // Fermer après sélection
 }
@@ -125,10 +141,46 @@ async function updatePauseDuration(position: number, duration: number) {
 // Supprimer une pause manuelle
 async function removePause(position: number) {
   manualPauses.value = manualPauses.value.filter(p => p.position !== position)
-  await db.settings.set('pause_positions', JSON.stringify(manualPauses.value))
+  await savePauses()
 }
 
 const currentStudent = ref<string | null>(null)
+
+// --- Glisser-déposer de l'ordre de passage (enseignant uniquement) ---
+const canReorder = computed(() => authStore.isTeacher)
+const draggingId = ref<string | null>(null)
+const dropIndex = ref<number | null>(null)
+
+function onDragStart(studentId: string, event: DragEvent) {
+  draggingId.value = studentId
+  event.dataTransfer?.setData('text/plain', studentId)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragOver(index: number) {
+  if (draggingId.value) dropIndex.value = index
+}
+
+function onDragEnd() {
+  draggingId.value = null
+  dropIndex.value = null
+}
+
+async function onDrop(index: number) {
+  const ids = sortedStudents.value.map(s => s.id)
+  const from = draggingId.value ? ids.indexOf(draggingId.value) : -1
+  onDragEnd()
+  if (from === -1 || from === index) return
+
+  const [moved] = ids.splice(from, 1)
+  ids.splice(index, 0, moved)
+  try {
+    await studentsStore.reorderStudents(ids)
+  } catch (err) {
+    console.error('[oral] Erreur réordonnancement:', err)
+    toast.add({ title: 'Impossible d\'enregistrer l\'ordre de passage', icon: 'i-heroicons-x-circle', color: 'red' })
+  }
+}
 </script>
 
 <template>
@@ -155,9 +207,20 @@ const currentStudent = ref<string | null>(null)
             <div class="schedule-item-wrapper">
               <div
                 class="schedule-item"
-                :class="{ 'schedule-item--active': currentStudent === student.id }"
+                :class="{
+                  'schedule-item--active': currentStudent === student.id,
+                  'schedule-item--dragging': draggingId === student.id,
+                  'schedule-item--drop-before': dropIndex === idx && draggingId !== student.id && sortedStudents.findIndex(s => s.id === draggingId) > idx,
+                  'schedule-item--drop-after': dropIndex === idx && draggingId !== student.id && sortedStudents.findIndex(s => s.id === draggingId) < idx,
+                }"
+                :draggable="canReorder"
                 @click="currentStudent = student.id"
+                @dragstart="onDragStart(student.id, $event)"
+                @dragover.prevent="onDragOver(idx)"
+                @drop.prevent="onDrop(idx)"
+                @dragend="onDragEnd"
               >
+                <UIcon v-if="canReorder" name="i-heroicons-bars-2" class="drag-handle" title="Glisser pour réordonner" />
                 <span class="passage-num mono">{{ idx + 1 }}</span>
                 <div class="passage-info">
                   <span class="passage-name">{{ student.name }}</span>
@@ -317,6 +380,19 @@ const currentStudent = ref<string | null>(null)
   cursor: pointer; transition: background 0.12s;
 }
 .schedule-item:hover { background: var(--c-bg-hover); }
+
+/* Glisser-déposer */
+.drag-handle {
+  color: var(--c-text-muted);
+  font-size: 0.8rem;
+  cursor: grab;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+.schedule-item:hover .drag-handle { opacity: 1; }
+.schedule-item--dragging { opacity: 0.4; }
+.schedule-item--drop-before { box-shadow: inset 0 2px 0 var(--c-nuxt); }
+.schedule-item--drop-after { box-shadow: inset 0 -2px 0 var(--c-nuxt); }
 .schedule-item--active {
   background: color-mix(in srgb, var(--c-nuxt) 8%, transparent);
   border-left: 2px solid var(--c-nuxt);
